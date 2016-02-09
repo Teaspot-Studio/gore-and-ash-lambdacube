@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # usage: mkdocs gore-and-ash-lambdacube <version> <haddock-login>
+cabal update && cabal install --dependencies-only
 cabal configure && cabal build && cabal haddock --hyperlink-source \
                                     --html-location='/package/$pkg-$version/docs' \
                                     --contents-location='/package/$pkg' \
