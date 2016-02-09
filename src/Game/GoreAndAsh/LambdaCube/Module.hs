@@ -36,7 +36,7 @@ import Game.GoreAndAsh.LambdaCube.State
 --   deriving (Functor, Applicative, Monad, MonadFix, MonadIO, MonadThrow, MonadCatch, MonadLambdaCube)
 -- @
 --
--- The module is pure within first phase (see 'ModuleStack' docs), therefore 'Identity' can be used as end monad.
+-- The module is not pure within first phase (see 'ModuleStack' docs), therefore only 'IO' can be used as end monad.
 newtype LambdaCubeT s m a = LambdaCubeT { runLambdaCubeT :: StateT (LambdaCubeState s) m a }
   deriving (Functor, Applicative, Monad, MonadState (LambdaCubeState s), MonadFix, MonadTrans, MonadIO, MonadThrow, MonadCatch, MonadMask)
 

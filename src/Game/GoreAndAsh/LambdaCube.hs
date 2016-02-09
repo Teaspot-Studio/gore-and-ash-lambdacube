@@ -12,12 +12,12 @@ The core module contains API for something into main game loop for Gore&Ash.
 
 The module does not depend on any other core modules, so 'LambdaCubeT' could be placed at any place in monad stack.
 
-The module is pure within first phase (see 'ModuleStack' docs), therefore 'Identity' can be used as end monad.
+The module is not pure within first phase (see 'ModuleStack' docs), therefore only 'IO' can be used as end monad.
 
 Example of embedding:
 
 @
--- | Application monad is monad stack build from given list of modules over base monad (IO or Identity)
+-- | Application monad is monad stack build from given list of modules over base monad (IO)
 type AppStack = ModuleStack [LambdaCubeT ... other modules ... ] IO
 newtype AppState = AppState (ModuleState AppStack)
   deriving (Generic)
