@@ -50,4 +50,4 @@ instance GameModule m s => GameModule (LambdaCubeT s m) (LambdaCubeState s) wher
   
   newModuleState = emptyLambdaCubeState <$> newModuleState
   withModule _ = id
-  cleanupModule _ = return ()
+  cleanupModule = freeLambdaCubeState

@@ -11,17 +11,23 @@ module Game.GoreAndAsh.LambdaCube.API(
     MonadLambdaCube(..)
   ) where
 
+import Control.Monad.State.Strict 
 import Control.Monad.Trans 
+import LambdaCube.GL as LambdaCubeG
 
 import Game.GoreAndAsh.LambdaCube.Module 
+import Game.GoreAndAsh.LambdaCube.State 
 
 -- | Low level monadic API for module.
 class MonadIO m => MonadLambdaCube m where 
-  -- | stab method, temporary
-  lambdacubeStab :: m ()
+  -- | Update viewport size for rendering engine
+  -- Should be called when window size is changed (or every frame)
+  lambdacubeUpdateSize :: Int -> Int -> m ()
 
 instance {-# OVERLAPPING #-} MonadIO m => MonadLambdaCube (LambdaCubeT s m) where
-  lambdacubeStab = return ()
+  lambdacubeUpdateSize w h = do 
+    s <- get 
+    liftIO $ updateStateViewportSize w h s
 
 instance {-# OVERLAPPABLE #-} (MonadIO (mt m), MonadLambdaCube m, MonadTrans mt) => MonadLambdaCube (mt m) where 
-  lambdacubeStab = lift lambdacubeStab
+  lambdacubeUpdateSize a b = lift $ lambdacubeUpdateSize a b
