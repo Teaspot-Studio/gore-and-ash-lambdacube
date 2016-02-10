@@ -12,11 +12,11 @@ import Control.Wire
 import Prelude hiding ((.), id)
 
 import Game.GoreAndAsh
+import Game.GoreAndAsh.GLFW 
 import Game.GoreAndAsh.LambdaCube 
-import Game.GoreAndAsh.SDL 
 
 -- | Application monad is monad stack build from given list of modules over base monad (IO)
-type AppStack = ModuleStack [SDLT, LambdaCubeT] IO
+type AppStack = ModuleStack [GLFWT, LambdaCubeT] IO
 newtype AppState = AppState (ModuleState AppStack)
   deriving (Generic)
 
@@ -24,7 +24,7 @@ instance NFData AppState
 
 -- | Wrapper around type family
 newtype AppMonad a = AppMonad (AppStack a)
-  deriving (Functor, Applicative, Monad, MonadFix, MonadIO, MonadThrow, MonadCatch, MonadLambdaCube, MonadSDL)
+  deriving (Functor, Applicative, Monad, MonadFix, MonadIO, MonadThrow, MonadCatch, MonadLambdaCube, MonadGLFW)
 
 instance GameModule AppMonad AppState where 
   type ModuleState AppMonad = AppState

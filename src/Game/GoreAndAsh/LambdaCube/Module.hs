@@ -15,6 +15,7 @@ module Game.GoreAndAsh.LambdaCube.Module(
 import Control.Monad.Catch
 import Control.Monad.Fix 
 import Control.Monad.State.Strict
+import Data.Proxy 
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.LambdaCube.State
@@ -56,7 +57,7 @@ instance (MonadIO m, MonadThrow m, GameModule m s) => GameModule (LambdaCubeT s 
       return a
 
   newModuleState = emptyLambdaCubeState <$> newModuleState
-  withModule _ = id
+  withModule _ io = withModule (Proxy :: Proxy m) io
   cleanupModule = freeLambdaCubeState
 
 -- | Render all queued storages

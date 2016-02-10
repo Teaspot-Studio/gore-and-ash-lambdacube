@@ -77,7 +77,7 @@ instance {-# OVERLAPPING #-} (MonadIO m, MonadThrow m) => MonadLambdaCube (Lambd
   lambdacubeAddPipeline !ps !mn !pid !pwr = do 
     s <- get 
     when (isPipelineRegisteredInternal pid s) . throwM . PipeLineAlreadyRegistered $! pid
-    mpd <- liftIO $ LambdaCube.compileMain ps OpenGL33 "hello"
+    mpd <- liftIO $ LambdaCube.compileMain ps OpenGL33 mn
     case mpd of 
       Left err -> throwM . PipeLineCompileFailed mn pid $! "compile error:\n" ++ err
       Right pd -> do 

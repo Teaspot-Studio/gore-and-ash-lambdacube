@@ -40,10 +40,20 @@ library
                       GeneralizedNewtypeDeriving
                       MultiParamTypeClasses
                       RecordWildCards
+                      ScopedTypeVariables
                       TypeFamilies
                       UndecidableInstances
 
+Flag examples
+  Description: Enable building of examples
+  Default:     False
+
 executable gore-and-ash-lambdacube-example01
+  if flag(examples)
+    Buildable: True
+  else
+    Buildable: False
+
   hs-source-dirs:     examples/01, examples/shared
   main-is:            Main.hs
   default-language:   Haskell2010
@@ -53,9 +63,10 @@ executable gore-and-ash-lambdacube-example01
                      , containers >= 0.5.6.2
                      , deepseq >= 1.4.1.1
                      , exceptions >= 0.8.2.1
+                     , GLFW-b >= 1.4.7.3
                      , gore-and-ash >= 1.1.0.1
+                     , gore-and-ash-glfw >= 1.1.0.0
                      , gore-and-ash-lambdacube
-                     , gore-and-ash-sdl >= 1.1.0.1
                      , JuicyPixels >= 3.2.7
                      , lambdacube-compiler >= 0.4.0.0
                      , lambdacube-gl >= 0.4.0.2
