@@ -12,6 +12,7 @@ module Game.GoreAndAsh.LambdaCube.State(
     LambdaCubeState(..)
   , PipelineId
   , StorageId(..)
+  , LambdaCubeException(..)
   , emptyLambdaCubeState
   , freeLambdaCubeState
   -- | Internal API
@@ -19,9 +20,18 @@ module Game.GoreAndAsh.LambdaCube.State(
   , isPipelineRegisteredInternal
   , registerPipelineInternal
   , unregisterPipelineInternal
+  , getPipelineSchemeInternal
+  , registerStorageInternal
+  , unregisterStorageInternal
+  , getStorageInternal
+  , getRendererInternal
+  , renderStorageLastInternal
+  , renderStorageFirstInternal
+  , stopRenderingInternal
   ) where
 
 import Control.DeepSeq
+import Control.Exception.Base (Exception)
 import Data.Hashable
 import Data.Text 
 import GHC.Generics (Generic)
@@ -34,6 +44,22 @@ import qualified Data.Sequence as S
 
 import LambdaCube.Compiler as LambdaCube
 import LambdaCube.GL as LambdaCubeGL
+
+-- | Exception type that could be thrown by the module
+data LambdaCubeException =
+  -- | Thrown when a pipeline compilation failed, first is pipeline main module, last is error message
+    PipeLineCompileFailed String PipelineId String
+  -- | Thrown when tries to register the same pipeline twice
+  | PipeLineAlreadyRegistered PipelineId
+  -- | Trhown when tries to create storage for unregistered pipeline
+  | PipeLineNotFound PipelineId 
+  -- | Thrown when tries to get unregistered storage 
+  | StorageNotFound StorageId 
+  -- | Thrown when failed to bind pipeline to context, contains pipeline name and error message
+  | PipeLineIncompatible StorageId String
+  deriving (Generic, Show)
+
+instance Exception LambdaCubeException
 
 -- | ID to uniquely identify LambdaCube rednering pipeline
 type PipelineId = Text 
@@ -146,3 +172,56 @@ unregisterPipelineInternal i s =
           lambdacubePipelines = H.delete i . lambdacubePipelines $! s
         , lambdacubeStorages = H.filterWithKey (\k _ -> not $ isPipelineStorage i k) . lambdacubeStorages $! s
         }
+
+-- | Getter of pipeline scheme
+getPipelineSchemeInternal :: PipelineId -> LambdaCubeState s -> Maybe PipelineSchema
+getPipelineSchemeInternal i LambdaCubeState{..} = fmap pipeInfoSchema . H.lookup i $! lambdacubePipelines
+
+-- | Registering gl storage for given pipeline
+registerStorageInternal :: PipelineId -> GLStorage -> LambdaCubeState s -> (StorageId, LambdaCubeState s)
+registerStorageInternal pid storage s = (i, s')
+  where
+  i = StorageId {
+      storageId = lambdacubeNextStorageId s 
+    , storageScheme = pid 
+    }
+
+  s' = s { 
+      lambdacubeNextStorageId = lambdacubeNextStorageId s + 1 
+    , lambdacubeStorages = H.insert i storage . lambdacubeStorages $! s
+    }
+
+-- | Remove and deallocate storage
+unregisterStorageInternal :: StorageId -> LambdaCubeState s -> IO (LambdaCubeState s)
+unregisterStorageInternal i s = case H.lookup i . lambdacubeStorages $! s of 
+  Nothing -> return s
+  Just storage -> do 
+    LambdaCubeGL.disposeStorage storage 
+    return $! s {
+        lambdacubeStorages = H.delete i . lambdacubeStorages $! s 
+      }
+
+getRendererInternal :: PipelineId -> LambdaCubeState s -> Maybe GLRenderer
+getRendererInternal i LambdaCubeState{..} = fmap pipeInfoRenderer $! H.lookup i lambdacubePipelines
+
+-- | Find storage in state
+getStorageInternal :: StorageId -> LambdaCubeState s -> Maybe GLStorage
+getStorageInternal i LambdaCubeState{..} = H.lookup i lambdacubeStorages
+
+-- | Puts storage at end of rendering queue
+renderStorageLastInternal :: StorageId -> LambdaCubeState s -> LambdaCubeState s 
+renderStorageLastInternal i s = s {
+    lambdacubeRenderOrder = S.filter (/= i) (lambdacubeRenderOrder s) S.|> i
+  }
+
+-- | Puts storage at begining of rendering queue
+renderStorageFirstInternal :: StorageId -> LambdaCubeState s -> LambdaCubeState s
+renderStorageFirstInternal i s = s {
+    lambdacubeRenderOrder = i S.<| S.filter (/= i) (lambdacubeRenderOrder s) 
+  }
+
+-- | Removes storage from rendering queue
+stopRenderingInternal :: StorageId -> LambdaCubeState s -> LambdaCubeState s
+stopRenderingInternal i s = s {
+    lambdacubeRenderOrder = S.filter (/= i) (lambdacubeRenderOrder s) 
+  }

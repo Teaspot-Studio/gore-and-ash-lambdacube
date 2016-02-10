@@ -47,6 +47,9 @@ module Game.GoreAndAsh.LambdaCube(
     LambdaCubeState
   , LambdaCubeT 
   , MonadLambdaCube(..)
+  , LambdaCubeException(..)
+  , PipelineId
+  , StorageId
   ) where
 
 -- for docs
