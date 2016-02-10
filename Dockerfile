@@ -10,4 +10,4 @@ ADD src /opt/project/src
 
 WORKDIR /opt/project
 
-ENTRYPOINT ["./mkdocs", "lambdacube-network", "0.1.0.0", "NCrashed"]
+ENTRYPOINT ["./mkdocs", "gore-and-ash-lambdacube", "0.1.0.0", "NCrashed"]
