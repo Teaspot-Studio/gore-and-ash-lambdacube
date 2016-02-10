@@ -12,12 +12,8 @@ module Game.GoreAndAsh.LambdaCube.API(
   , LambdaCubeException(..)
   ) where
 
-import Control.DeepSeq
-import GHC.Generics 
-
 import Control.Monad.Catch (throwM, MonadThrow)
 import Control.Monad.State.Strict 
-import Control.Monad.Trans 
 import Control.Monad.Writer (Writer)
 
 import LambdaCube.Compiler as LambdaCube
@@ -81,7 +77,7 @@ instance {-# OVERLAPPING #-} (MonadIO m, MonadThrow m) => MonadLambdaCube (Lambd
   lambdacubeAddPipeline !ps !mn !pid !pwr = do 
     s <- get 
     when (isPipelineRegisteredInternal pid s) . throwM . PipeLineAlreadyRegistered $! pid
-    mpd <- liftIO $ LambdaCube.compileMain ["."] OpenGL33 "hello"
+    mpd <- liftIO $ LambdaCube.compileMain ps OpenGL33 "hello"
     case mpd of 
       Left err -> throwM . PipeLineCompileFailed mn pid $! "compile error:\n" ++ err
       Right pd -> do 

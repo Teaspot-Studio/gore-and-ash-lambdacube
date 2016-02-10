@@ -45,12 +45,12 @@ newtype LambdaCubeT s m a = LambdaCubeT { runLambdaCubeT :: StateT (LambdaCubeSt
 instance (MonadIO m, MonadThrow m, GameModule m s) => GameModule (LambdaCubeT s m) (LambdaCubeState s) where 
   type ModuleState (LambdaCubeT s m) = LambdaCubeState s
   runModule (LambdaCubeT m) s = do
-    ((a, s'), nextState) <- runModule (runModuleState m s) (lambdacubeNextState s)
+    ((a, s'), nextState) <- runModule runModuleState (lambdacubeNextState s)
     return (a, s' {
         lambdacubeNextState = nextState 
       })  
     where
-    runModuleState m s = flip runStateT s $ do 
+    runModuleState = flip runStateT s $ do 
       a <- m 
       renderStorages =<< get
       return a

@@ -17,6 +17,7 @@ packages:
 - location:
     git: git@github.com:lambdacube3d/lambdacube-compiler.git
     commit: 84516a297bd751afe7e207b106c3a20c03829f12
+- '../gore-and-ash-sdl'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
