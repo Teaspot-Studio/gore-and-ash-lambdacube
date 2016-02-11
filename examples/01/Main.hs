@@ -19,11 +19,13 @@ import Core
 import FPS 
 
 import qualified Graphics.UI.GLFW as GLFW 
+import qualified Data.Map as Map
+import qualified Data.Vector as V
 
 --import Codec.Picture as Juicy
 --import LambdaCube.Compiler as LambdaCube -- compiler
 import LambdaCube.GL as LambdaCubeGL -- renderer
---import LambdaCube.GL.Mesh as LambdaCubeGL
+import LambdaCube.GL.Mesh as LambdaCubeGL
 
 
 main :: IO ()
@@ -43,6 +45,14 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
           defUniforms $ do
             "time"           @: Float
             "diffuseTexture" @: FTexture2D
+
+        (_, storage) <- lambdacubeCreateStorage mainPipeline
+        -- upload geometry to GPU and add to pipeline input
+        liftIO $ do 
+          _ <- LambdaCubeGL.uploadMeshToGPU triangleA >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
+          _ <- LambdaCubeGL.uploadMeshToGPU triangleB >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
+          return ()
+          
         return ()
       gameLoop fps gs'
 
@@ -104,3 +114,22 @@ nothingInhibit = mkPure_ $ \ma -> case ma of
 -- | Swaps frame 
 glfwFinishFrame :: AppWire GLFW.Window ()
 glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
+
+-- geometry data: triangles
+triangleA :: LambdaCubeGL.Mesh
+triangleA = Mesh
+    { mAttributes   = Map.fromList
+        [ ("position",  A_V2F $ V.fromList [V2 1 1, V2 1 (-1), V2 (-1) (-1)])
+        , ("uv",        A_V2F $ V.fromList [V2 1 1, V2 0 1, V2 0 0])
+        ]
+    , mPrimitive    = P_Triangles
+    }
+
+triangleB :: LambdaCubeGL.Mesh
+triangleB = Mesh
+    { mAttributes   = Map.fromList
+        [ ("position",  A_V2F $ V.fromList [V2 1 1, V2 (-1) (-1), V2 (-1) 1])
+        , ("uv",        A_V2F $ V.fromList [V2 1 1, V2 0 0, V2 1 0])
+        ]
+    , mPrimitive    = P_Triangles
+    }
