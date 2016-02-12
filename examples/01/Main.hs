@@ -22,16 +22,15 @@ import qualified Graphics.UI.GLFW as GLFW
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 
---import Codec.Picture as Juicy
+import Codec.Picture as Juicy
 --import LambdaCube.Compiler as LambdaCube -- compiler
 import LambdaCube.GL as LambdaCubeGL -- renderer
 import LambdaCube.GL.Mesh as LambdaCubeGL
 
-
 main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
-  gs <- newGameState mainWire
-  fps <- makeFPSBounder 60
+  gs <- newGameState initStorage
+  fps <- makeFPSBounder 180
   firstLoop fps gs 
   where 
     firstLoop fps gs = do 
@@ -45,14 +44,6 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
           defUniforms $ do
             "time"           @: Float
             "diffuseTexture" @: FTexture2D
-
-        (_, storage) <- lambdacubeCreateStorage mainPipeline
-        -- upload geometry to GPU and add to pipeline input
-        liftIO $ do 
-          _ <- LambdaCubeGL.uploadMeshToGPU triangleA >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
-          _ <- LambdaCubeGL.uploadMeshToGPU triangleB >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
-          return ()
-          
         return ()
       gameLoop fps gs'
 
@@ -87,11 +78,27 @@ data Game = Game {
 
 instance NFData Game 
 
-mainWire :: AppWire a (Maybe Game)
-mainWire = (<|> pure Nothing) $ proc _ -> do
+initStorage :: AppWire a (Maybe Game)
+initStorage = mkGen $ \_ _ -> do 
+  (sid, storage) <- lambdacubeCreateStorage mainPipeline
+  textureData <- liftIO $ do 
+    -- upload geometry to GPU and add to pipeline input
+    _ <- LambdaCubeGL.uploadMeshToGPU triangleA >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
+    _ <- LambdaCubeGL.uploadMeshToGPU triangleB >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
+    
+    -- load image and upload texture
+    Right img <- Juicy.readImage "logo.png"
+    LambdaCubeGL.uploadTexture2DToGPU img
+
+  lambdacubeRenderStorageFirst sid
+  return (Right Nothing, mainWire storage textureData)
+
+mainWire :: GLStorage -> TextureData -> AppWire a (Maybe Game)
+mainWire storage textureData = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
   updateWinSize -< w
+  renderStorage storage textureData -< ()
   glfwFinishFrame -< w
   returnA -< Just $ Game closed
 
@@ -110,6 +117,18 @@ nothingInhibit :: AppWire (Maybe a) a
 nothingInhibit = mkPure_ $ \ma -> case ma of 
   Nothing -> Left ()
   Just a -> Right a
+
+-- | Updates storage uniforms
+renderStorage :: GLStorage -> TextureData -> AppWire a ()
+renderStorage storage textureData = proc _ -> do 
+  t <- timeF -< ()
+  fillUniforms -< t 
+  where
+  fillUniforms :: AppWire Float ()
+  fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
+    LambdaCubeGL.updateUniforms storage $ do
+      "diffuseTexture" @= return textureData
+      "time" @= return t
 
 -- | Swaps frame 
 glfwFinishFrame :: AppWire GLFW.Window ()
