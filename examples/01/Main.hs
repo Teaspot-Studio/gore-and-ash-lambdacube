@@ -23,9 +23,11 @@ import qualified Data.Map as Map
 import qualified Data.Vector as V
 
 import Codec.Picture as Juicy
---import LambdaCube.Compiler as LambdaCube -- compiler
 import LambdaCube.GL as LambdaCubeGL -- renderer
 import LambdaCube.GL.Mesh as LambdaCubeGL
+
+mainPipeline :: PipelineId 
+mainPipeline = "mainPipeline"
 
 main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
@@ -68,9 +70,6 @@ initWindow title width height = do
     GLFW.makeContextCurrent $ Just win
     return win
 
-mainPipeline :: PipelineId 
-mainPipeline = "mainPipeline"
-
 data Game = Game {
     gameExit :: Bool
   }
@@ -78,6 +77,7 @@ data Game = Game {
 
 instance NFData Game 
 
+-- | Initalizes storage and then switches to rendering state
 initStorage :: AppWire a (Maybe Game)
 initStorage = mkGen $ \_ _ -> do 
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
@@ -91,48 +91,49 @@ initStorage = mkGen $ \_ _ -> do
     LambdaCubeGL.uploadTexture2DToGPU img
 
   lambdacubeRenderStorageFirst sid
-  return (Right Nothing, mainWire storage textureData)
+  return (Right Nothing, renderWire storage textureData)
 
-mainWire :: GLStorage -> TextureData -> AppWire a (Maybe Game)
-mainWire storage textureData = (<|> pure Nothing) $ proc _ -> do
+-- | Infinitely render given storage
+renderWire :: GLStorage -> TextureData -> AppWire a (Maybe Game)
+renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
   updateWinSize -< w
-  renderStorage storage textureData -< ()
+  renderStorage -< ()
   glfwFinishFrame -< w
   returnA -< Just $ Game closed
+  where
+  -- | Outputs True if user hits close button
+  isWindowClosed :: AppWire a Bool
+  isWindowClosed = hold . mapE (const True) . windowClosing <|> pure False
 
--- | Outputs True if user hits close button
-isWindowClosed :: AppWire a Bool
-isWindowClosed = hold . mapE (const True) . windowClosing <|> pure False
+  -- | Updates LambdaCube window size
+  updateWinSize :: AppWire GLFW.Window ()
+  updateWinSize = liftGameMonad1 $ \win -> do 
+    (w, h) <- liftIO $ GLFW.getWindowSize win
+    lambdacubeUpdateSize (fromIntegral w) (fromIntegral h)
 
--- | Updates LambdaCube window size
-updateWinSize :: AppWire GLFW.Window ()
-updateWinSize = liftGameMonad1 $ \win -> do 
-  (w, h) <- liftIO $ GLFW.getWindowSize win
-  lambdacubeUpdateSize (fromIntegral w) (fromIntegral h)
+  -- | Updates storage uniforms
+  renderStorage :: AppWire a ()
+  renderStorage = proc _ -> do 
+    t <- timeF -< ()
+    fillUniforms -< t 
+    where
+    fillUniforms :: AppWire Float ()
+    fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
+      LambdaCubeGL.updateUniforms storage $ do
+        "diffuseTexture" @= return textureData
+        "time" @= return t
+
+  -- | Swaps frame 
+  glfwFinishFrame :: AppWire GLFW.Window ()
+  glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
 
 -- | Inhibits if gets Nothing
 nothingInhibit :: AppWire (Maybe a) a 
 nothingInhibit = mkPure_ $ \ma -> case ma of 
   Nothing -> Left ()
   Just a -> Right a
-
--- | Updates storage uniforms
-renderStorage :: GLStorage -> TextureData -> AppWire a ()
-renderStorage storage textureData = proc _ -> do 
-  t <- timeF -< ()
-  fillUniforms -< t 
-  where
-  fillUniforms :: AppWire Float ()
-  fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
-    LambdaCubeGL.updateUniforms storage $ do
-      "diffuseTexture" @= return textureData
-      "time" @= return t
-
--- | Swaps frame 
-glfwFinishFrame :: AppWire GLFW.Window ()
-glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
 
 -- geometry data: triangles
 triangleA :: LambdaCubeGL.Mesh
