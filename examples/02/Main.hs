@@ -4,9 +4,10 @@ import Control.DeepSeq
 import GHC.Generics 
 
 import Control.Monad (join)
+import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class
 import Data.Maybe (fromMaybe)
-import Data.Proxy 
+import Data.Proxy
 
 import Control.Wire 
 import Prelude hiding ((.), id)
@@ -17,6 +18,7 @@ import Game.GoreAndAsh.GLFW
 
 import Core 
 import FPS 
+import Matrix
 
 import qualified Graphics.UI.GLFW as GLFW 
 import qualified Data.Map as Map
@@ -33,21 +35,31 @@ main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
   gs <- newGameState initStorage
   fps <- makeFPSBounder 180
-  firstLoop fps gs 
+  firstLoop fps gs `catch` errorExit
   where 
     firstLoop fps gs = do 
       (_, gs') <- stepGame gs $ do
-        win <- liftIO $ initWindow "Gore&Ash LambdaCube Example 01" 640 640
+        win <- liftIO $ initWindow "Gore&Ash LambdaCube Example 02" 640 640
         setCurrentWindowM $ Just win 
-        lambdacubeAddPipeline [".", "../shared"] "example01" mainPipeline $ do
+        lambdacubeAddPipeline [".", "../shared"] "example02" mainPipeline $ do
           defObjectArray "objects" Triangles $ do
-            "position"  @: Attribute_V2F
+            "position"  @: Attribute_V3F
+            "normal"    @: Attribute_V3F
             "uv"        @: Attribute_V2F
           defUniforms $ do
-            "time"           @: Float
+            "projmat"        @: M44F
             "diffuseTexture" @: FTexture2D
         return ()
       gameLoop fps gs'
+
+    errorExit e = do 
+      liftIO $ case e of 
+        PipeLineCompileFailed _ _ msg -> putStrLn msg
+        PipeLineAlreadyRegistered i -> putStrLn $ "Pipeline already registered: " ++ show i
+        PipeLineNotFound i -> putStrLn $ "Pipeline is not found: " ++ show i 
+        StorageNotFound i -> putStrLn $ "Storage is not found: " ++ show i 
+        PipeLineIncompatible _ msg -> putStrLn $ "Pipeline incompatible: " ++ msg
+      fail "terminate: fatal error"
 
     gameLoop fps gs = do
       waitFPSBound fps 
@@ -83,8 +95,7 @@ initStorage = mkGen $ \_ _ -> do
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
   textureData <- liftIO $ do 
     -- upload geometry to GPU and add to pipeline input
-    _ <- LambdaCubeGL.uploadMeshToGPU triangleA >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
-    _ <- LambdaCubeGL.uploadMeshToGPU triangleB >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
+    _ <- LambdaCubeGL.uploadMeshToGPU cubeMesh >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
     
     -- load image and upload texture
     Right img <- Juicy.readImage "../shared/logo.png"
@@ -123,7 +134,7 @@ renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
     fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
       LambdaCubeGL.updateUniforms storage $ do
         "diffuseTexture" @= return textureData
-        "time" @= return t
+        "projmat" @= return (mvp t)
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
@@ -136,20 +147,51 @@ nothingInhibit = mkPure_ $ \ma -> case ma of
   Just a -> Right a
 
 -- geometry data: triangles
-triangleA :: LambdaCubeGL.Mesh
-triangleA = Mesh
-    { mAttributes   = Map.fromList
-        [ ("position",  A_V2F $ V.fromList [V2 1 1, V2 1 (-1), V2 (-1) (-1)])
-        , ("uv",        A_V2F $ V.fromList [V2 1 1, V2 0 1, V2 0 0])
-        ]
-    , mPrimitive    = P_Triangles
-    }
+cubeMesh :: LambdaCubeGL.Mesh
+cubeMesh = Mesh
+  { mAttributes   = Map.fromList
+      [ ("position",  A_V3F $ V.fromList vertecies)
+      , ("normal",    A_V3F $ V.fromList normals)
+      , ("uv",        A_V2F $ V.fromList uvs)
+      ]
+  , mPrimitive    = P_Triangles
+  }
+  where 
+  vertecies = [
+      v3, v2, v1, v3, v1, v0
+    , v4, v7, v6, v4, v6, v5
+    , v0, v1, v7, v0, v7, v4
+    , v5, v6, v2, v5, v2, v3
+    , v2, v6, v7, v2, v7, v1
+    , v5, v3, v0, v5, v0, v4
+    ]
+  normals = concat [
+      replicate 6 n0
+    , replicate 6 n1
+    , replicate 6 n2
+    , replicate 6 n3
+    , replicate 6 n4
+    , replicate 6 n5
+    ]
+  uvs = concat $ replicate 6 [u1, u2, u3, u1, u3, u0]
 
-triangleB :: LambdaCubeGL.Mesh
-triangleB = Mesh
-    { mAttributes   = Map.fromList
-        [ ("position",  A_V2F $ V.fromList [V2 1 1, V2 (-1) (-1), V2 (-1) 1])
-        , ("uv",        A_V2F $ V.fromList [V2 1 1, V2 0 0, V2 1 0])
-        ]
-    , mPrimitive    = P_Triangles
-    }
+  v0 = V3 (-1) (-1) (-1)
+  v1 = V3 (-1)   1  (-1)
+  v2 = V3   1    1  (-1)
+  v3 = V3   1  (-1) (-1)
+  v4 = V3 (-1) (-1)   1
+  v5 = V3   1  (-1)   1
+  v6 = V3   1    1    1
+  v7 = V3 (-1)   1    1
+
+  n0 = V3   0    0  (-1)
+  n1 = V3   0    0    1 
+  n2 = V3 (-1)   0    0
+  n3 = V3   1    0    0 
+  n4 = V3   0    1    0
+  n5 = V3   0  (-1)   0
+
+  u0 = V2 0 0 
+  u1 = V2 1 0 
+  u2 = V2 1 1 
+  u3 = V2 0 1
