@@ -4,6 +4,7 @@ import Control.DeepSeq
 import GHC.Generics 
 
 import Control.Monad (join)
+import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class
 import Data.Maybe (fromMaybe)
 import Data.Proxy 
@@ -33,7 +34,7 @@ main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
   gs <- newGameState initStorage
   fps <- makeFPSBounder 180
-  firstLoop fps gs 
+  firstLoop fps gs `catch` errorExit
   where 
     firstLoop fps gs = do 
       (_, gs') <- stepGame gs $ do
@@ -48,6 +49,15 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
             "diffuseTexture" @: FTexture2D
         return ()
       gameLoop fps gs'
+
+    errorExit e = do 
+      liftIO $ case e of 
+        PipeLineCompileFailed _ _ msg -> putStrLn msg
+        PipeLineAlreadyRegistered i -> putStrLn $ "Pipeline already registered: " ++ show i
+        PipeLineNotFound i -> putStrLn $ "Pipeline is not found: " ++ show i 
+        StorageNotFound i -> putStrLn $ "Storage is not found: " ++ show i 
+        PipeLineIncompatible _ msg -> putStrLn $ "Pipeline incompatible: " ++ msg
+      fail "terminate: fatal error"
 
     gameLoop fps gs = do
       waitFPSBound fps 
