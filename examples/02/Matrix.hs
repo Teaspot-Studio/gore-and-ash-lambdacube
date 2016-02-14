@@ -16,7 +16,7 @@ convLC (V4 !a !b !c !d) =  LC.V4 (cv a) (cv b) (cv c) (cv d)
 
 -- | Calculating Model-View-Projection matrix
 mvp' :: Float -> Float -> M44 Float
-mvp' aspect t = modelMatrix t !*! cameraMatrix !*! projMatrix aspect
+mvp' aspect t = modelMatrix t !*! cameraMatrix t !*! projMatrix aspect
 
 modelMatrix :: Float -> M44 Float 
 modelMatrix t = quatMatrix $ axisAngle (V3 1 0 1) t 
@@ -54,8 +54,10 @@ quatMatrix q@(Quaternion w (V3 x y z)) = V4
     m12 = yz + wx
     m22 = 1 - (xx + yy)      
 
-cameraMatrix :: M44 Float 
-cameraMatrix = lookAt (V3 0 0 (-1)) (V3 0 0 0) (V3 0 1 0)
+cameraMatrix :: Float -> M44 Float 
+cameraMatrix t = lookAt eye (V3 0 0 0) (V3 0 1 0)
+  where 
+    eye = rotate (axisAngle (V3 0 1 0) t) (V3 0 0 (-1))
 
 projMatrix :: Float -> M44 Float 
 projMatrix aspect = ortho (-2.5) 2.5 (-2.5) 2.5 (-0.01) (-5)
