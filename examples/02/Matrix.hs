@@ -7,7 +7,7 @@ import qualified LambdaCube.Linear as LC
 
 -- | Calculating Model-View-Projection matrix, matrix in LambdaCube format
 mvp :: Float -> Float -> LC.M44F
-mvp aspect t = convLC $ mvp' aspect t
+mvp !aspect !t = convLC $ mvp' aspect t
 
 convLC :: M44 Float -> LC.M44F 
 convLC (V4 !a !b !c !d) =  LC.V4 (cv a) (cv b) (cv c) (cv d)
@@ -16,13 +16,18 @@ convLC (V4 !a !b !c !d) =  LC.V4 (cv a) (cv b) (cv c) (cv d)
 
 -- | Calculating Model-View-Projection matrix
 mvp' :: Float -> Float -> M44 Float
-mvp' aspect t = modelMatrix t !*! cameraMatrix t !*! projMatrix aspect
+mvp' !aspect !t = transpose $ projMatrix !*! cameraMatrix !*! modelMatrix
+  where
+  modelMatrix = quatMatrix $ axisAngle (V3 1 0 1) t 
 
-modelMatrix :: Float -> M44 Float 
-modelMatrix t = quatMatrix $ axisAngle (V3 1 0 1) t 
+  cameraMatrix = lookAt eye (V3 0 0 0) (V3 0 1 0)
+  eye = rotate (axisAngle (V3 0 1 0) t) (V3 0 0 (-5))
 
+  projMatrix = perspective (pi/3) aspect 0.1 100
+
+-- | Transform quaternion to rotation matrix
 quatMatrix :: Quaternion Float -> M44 Float 
-quatMatrix q@(Quaternion w (V3 x y z)) = V4
+quatMatrix q@(Quaternion !w (V3 !x !y !z)) = V4
   (V4 m00 m01 m02 0)
   (V4 m10 m11 m12 0) 
   (V4 m20 m21 m22 0) 
@@ -53,14 +58,3 @@ quatMatrix q@(Quaternion w (V3 x y z)) = V4
     m02 = xz - wy
     m12 = yz + wx
     m22 = 1 - (xx + yy)      
-
-cameraMatrix :: Float -> M44 Float 
-cameraMatrix t = lookAt eye (V3 0 0 0) (V3 0 1 0)
-  where 
-    eye = rotate (axisAngle (V3 0 1 0) t) (V3 0 0 (-1))
-
-projMatrix :: Float -> M44 Float 
-projMatrix aspect = ortho (-2.5) 2.5 (-2.5) 2.5 (-0.01) (-5)
-  --perspective (pi/6) aspect 0.1 5
-  --infinitePerspective (pi/3) aspect 0.01
- 
