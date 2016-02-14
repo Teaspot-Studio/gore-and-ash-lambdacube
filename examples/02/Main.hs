@@ -109,8 +109,8 @@ renderWire :: GLStorage -> TextureData -> AppWire a (Maybe Game)
 renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
-  updateWinSize -< w
-  renderStorage -< ()
+  aspect <- updateWinSize -< w
+  renderStorage -< aspect
   glfwFinishFrame -< w
   returnA -< Just $ Game closed
   where
@@ -119,22 +119,23 @@ renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
   isWindowClosed = hold . mapE (const True) . windowClosing <|> pure False
 
   -- | Updates LambdaCube window size
-  updateWinSize :: AppWire GLFW.Window ()
+  updateWinSize :: AppWire GLFW.Window Float
   updateWinSize = liftGameMonad1 $ \win -> do 
     (w, h) <- liftIO $ GLFW.getWindowSize win
     lambdacubeUpdateSize (fromIntegral w) (fromIntegral h)
+    return $ fromIntegral w / fromIntegral h
 
   -- | Updates storage uniforms
-  renderStorage :: AppWire a ()
-  renderStorage = proc _ -> do 
+  renderStorage :: AppWire Float ()
+  renderStorage = proc aspect -> do 
     t <- timeF -< ()
-    fillUniforms -< t 
+    fillUniforms -< (aspect, t)
     where
-    fillUniforms :: AppWire Float ()
-    fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
+    fillUniforms :: AppWire (Float, Float) ()
+    fillUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
       LambdaCubeGL.updateUniforms storage $ do
         "diffuseTexture" @= return textureData
-        "projmat" @= return (mvp t)
+        "projmat" @= return (mvp aspect t)
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
