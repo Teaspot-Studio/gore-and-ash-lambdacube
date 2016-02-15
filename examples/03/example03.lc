@@ -1,16 +1,68 @@
-makeFrame (projmat :: Mat 4 4 Float)
+type Position = Vec 3 Float 
+type PositionHomo = Vec 4 Float 
+type Normal = Vec 3 Float
+type UV = Vec 2 Float
+type Color = Vec 4 Float 
+
+homonize :: Vec 3 Float -> Vec 4 Float 
+homonize v = V4 v%x v%y v%z 1 
+
+unhomonize :: Vec 4 Float -> Vec 3 Float 
+unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
+
+vec3 :: Float -> Vec 3 Float 
+vec3 a = V3 a a a 
+
+makeFrame (modelMat :: Mat 4 4 Float)
+          (viewMat :: Mat 4 4 Float)
+          (projMat :: Mat 4 4 Float)
           (texture :: Texture)
+          (lightPos :: Vec 3 Float)
           (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0.4 1))
   `overlay`
       prims
-    & mapPrimitives (\(p,_,uv) -> (projmat *. V4 p%x p%y p%z 1, uv))
-    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) Smooth
-    & mapFragments (\uv -> texture2D (Sampler PointFilter MirroredRepeat texture) uv)
+    & mapPrimitives transform
+    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth)
+    & mapFragments enlight
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
+  where
+    mv = modelMat .*. viewMat
+    mvp = transpose $ mv .*. projMat -- loaded matricies are in OpenGL format, need transpose
+    viewmatInvT = inv mv
 
+    transNormal :: Normal -> Normal
+    transNormal = normalize . unhomonize . (viewmatInvT *.) . homonize
+
+    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV)
+    transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv)
+      where p' = mvp *. homonize p
+            pview = (transpose $ modelMat .*. viewMat) *. homonize p
+
+    enlight :: (Position, Normal, UV) -> Color
+    enlight (vertPos, normal, uv) = homonize colorLinear
+      where 
+        ambientColor = V3 0 0 0
+        diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float
+        specColor = V3 1 1 1 
+        shininess = 64.0
+
+        lightPosView = unhomonize $ transpose viewMat *. homonize lightPos
+        lightDir = normalize $ lightPosView - vertPos
+        lambertian = max (lightDir `dot` normal) 0
+        viewDir = normalize (vertPos *! (-1))
+        halfDir = normalize $ lightDir + viewDir
+        specAngle = max (halfDir `dot` normal) 0
+        specular = if lambertian <= 0 then 0 else pow specAngle shininess
+
+        colorLinear = ambientColor + (diffuseColor%xyz) *! lambertian + specColor *! specular
+
+main :: Output
 main = renderFrame $
-   makeFrame (Uniform "projmat")
+   makeFrame (Uniform "modelMat")
+             (Uniform "viewMat")
+             (Uniform "projMat")
              (Texture2DSlot "diffuseTexture")
+             (Uniform "lightPos")
              (fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv"))

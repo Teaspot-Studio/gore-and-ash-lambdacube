@@ -1,29 +1,30 @@
 module Matrix(
-    mvp
+    modelMatrix
+  , cameraMatrix
+  , projMatrix
   ) where
 
 import Linear
 import qualified LambdaCube.Linear as LC 
 
--- | Calculating Model-View-Projection matrix, matrix in LambdaCube format
-mvp :: Float -> Float -> LC.M44F
-mvp !aspect !t = convLC $ mvp' aspect t
-
+-- | Convert from linear matrix format to LambdaCube format
 convLC :: M44 Float -> LC.M44F 
 convLC (V4 !a !b !c !d) =  LC.V4 (cv a) (cv b) (cv c) (cv d)
   where
     cv (V4 !x !y !z !w) = LC.V4 x y z w
 
--- | Calculating Model-View-Projection matrix
-mvp' :: Float -> Float -> M44 Float
-mvp' !aspect !t = transpose $ projMatrix !*! cameraMatrix !*! modelMatrix
-  where
-  modelMatrix = quatMatrix $ axisAngle (V3 1 0 1) t 
+-- | Model matrix, maps from local model coords to world coords
+modelMatrix :: Float -> LC.M44F 
+modelMatrix t = convLC . quatMatrix $ axisAngle (normalize $ V3 1 1 3) t 
 
-  cameraMatrix = lookAt eye (V3 0 0 0) (V3 0 1 0)
-  eye = rotate (axisAngle (V3 0 1 0) t) (V3 0 0 (-5))
+-- | Camera matrix, maps from world coords to camera coords
+cameraMatrix :: Float -> LC.M44F 
+cameraMatrix _ = convLC $ lookAt eye (V3 0 0 0) (V3 0 1 0)
+  where eye = V3 5 2 5 -- rotate (axisAngle (V3 0 1 0) t) (V3 5 2 5)
 
-  projMatrix = perspective (pi/3) aspect 0.1 100
+-- | Projection matrix, maps from camera coords to device normalized coords
+projMatrix :: Float -> LC.M44F 
+projMatrix !aspect = convLC $ perspective (pi/3) aspect 0.1 100
 
 -- | Transform quaternion to rotation matrix
 quatMatrix :: Quaternion Float -> M44 Float 

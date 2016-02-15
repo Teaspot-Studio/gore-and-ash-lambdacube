@@ -27,6 +27,7 @@ import qualified Data.Vector as V
 import Codec.Picture as Juicy
 import LambdaCube.GL as LambdaCubeGL -- renderer
 import LambdaCube.GL.Mesh as LambdaCubeGL
+import LambdaCube.Linear 
 
 mainPipeline :: PipelineId 
 mainPipeline = "mainPipeline"
@@ -47,8 +48,12 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
             "normal"    @: Attribute_V3F
             "uv"        @: Attribute_V2F
           defUniforms $ do
-            "projmat"        @: M44F
+            "modelMat"       @: M44F
+            "viewMat"        @: M44F
+            "projMat"        @: M44F
             "diffuseTexture" @: FTexture2D
+            "lightPos"       @: V3F
+
         return ()
       gameLoop fps gs'
 
@@ -135,7 +140,10 @@ renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
     fillUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
       LambdaCubeGL.updateUniforms storage $ do
         "diffuseTexture" @= return textureData
-        "projmat" @= return (mvp aspect t)
+        "modelMat" @= return (modelMatrix t)
+        "viewMat" @= return (cameraMatrix t)
+        "projMat" @= return (projMatrix aspect)
+        "lightPos" @= return (V3 3 3 3 :: V3F)
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
