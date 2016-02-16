@@ -13,6 +13,17 @@ unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 vec3 :: Float -> Vec 3 Float 
 vec3 a = V3 a a a 
 
+makeShadowMap (depthMVP :: Mat 4 4 Float)
+              (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
+
+    = imageFrame (emptyDepthImage 1, emptyColorImage (V4 1 1 1 1.0))
+    `overlay`
+      prims 
+    & mapPrimitives (\(v, n, uv) -> let v' = depthMVP *. homonize v in (v', v'))
+    & rasterizePrimitives (TriangleCtx CullBack PolygonFill NoOffset LastVertex) Smooth
+    & mapFragments (\v -> v%zzzw)
+    & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
+
 makeFrame (modelMat :: Mat 4 4 Float)
           (viewMat :: Mat 4 4 Float)
           (projMat :: Mat 4 4 Float)
@@ -21,7 +32,7 @@ makeFrame (modelMat :: Mat 4 4 Float)
           (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0.4 1))
-  `overlay`
+   `overlay`
       prims
     & mapPrimitives transform
     & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth)
@@ -63,11 +74,15 @@ makeFrame (modelMat :: Mat 4 4 Float)
 
         colorLinear = ambientColor + (diffuseColor%xyz) *! lambertian + specColor *! specular
 
+
 main :: Output
 main = renderFrame $
-   makeFrame (Uniform "modelMat")
-             (Uniform "viewMat")
-             (Uniform "projMat")
-             (Texture2DSlot "diffuseTexture")
-             (Uniform "lightDir")
-             (fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv"))
+  makeShadowMap (Uniform "depthMVP") objects
+  --makeFrame (Uniform "modelMat") 
+  --          (Uniform "viewMat")
+  --          (Uniform "projMat")
+  --          (Texture2DSlot "diffuseTexture")
+  --          (Uniform "lightDir")
+  --          objects
+  where
+    objects = fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv")

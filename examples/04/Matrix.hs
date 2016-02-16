@@ -4,7 +4,8 @@ module Matrix(
   , cameraMatrix
   , projMatrix
   , lightDirection
-  , depthMVP
+  , depthMVPCube
+  , depthMVPWall
   ) where
 
 import Linear
@@ -23,11 +24,17 @@ convLCV (V3 !x !y !z) = LC.V3 x y z
 
 -- | Model matrix for rotating cube, maps from local model coords to world coords
 modelMatrixCube :: Float -> LC.M44F 
-modelMatrixCube t = convLC . quatMatrix $ axisAngle (normalize $ V3 1 1 3) t 
+modelMatrixCube = convLC . modelMatrixCube'
+
+modelMatrixCube' :: Float -> M44 Float 
+modelMatrixCube' t = quatMatrix $ axisAngle (normalize $ V3 1 1 3) t 
 
 -- | Model matrix for static wall, maps from local model coords to world coords
 modelMatrixWall :: LC.M44F 
-modelMatrixWall = convLC $ scale (V3 1 7 7) !*! translate (V3 (-3) 0 0)
+modelMatrixWall = convLC modelMatrixWall'
+
+modelMatrixWall' :: M44 Float 
+modelMatrixWall' = scale (V3 1 7 7) !*! translate (V3 (-3) 0 0)
 
 -- | Camera matrix, maps from world coords to camera coords
 cameraMatrix :: Float -> LC.M44F 
@@ -44,14 +51,21 @@ lightDirection = convLCV lightDir
 
 -- | Direction of light in Linear vector
 lightDir :: V3 Float 
-lightDir = V3 (-3) (-1) 0 
+lightDir = normalize $ V3 (-3) 0.5 0 
 
 -- | Matrix to view from directed light source
-depthMVP :: LC.M44F 
-depthMVP = convLC $ view !*! proj 
+depthMVPCube :: Float -> LC.M44F 
+depthMVPCube t = depthMVP $ modelMatrixCube' t
+
+-- | Matrix to view from directed light source
+depthMVPWall :: LC.M44F 
+depthMVPWall = depthMVP modelMatrixWall'
+
+depthMVP :: M44 Float -> LC.M44F 
+depthMVP modelMtx = convLC . transpose $ proj !*! view !*! modelMtx
   where 
     view = lookAt (negate lightDir) (V3 0 0 0) (V3 0 1 0)
-    proj = ortho (-7) 7 (-7) 7 7 (-7)
+    proj = ortho (-10) 10 (-10) 10 (-10) (10)
 
 -- | Transform quaternion to rotation matrix
 quatMatrix :: Quaternion Float -> M44 Float 

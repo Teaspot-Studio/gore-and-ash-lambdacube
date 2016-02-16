@@ -35,10 +35,9 @@ mainPipeline = "mainPipeline"
 main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
   gs <- newGameState mainWire
-  fps <- makeFPSBounder 180
-  firstLoop fps gs `catch` errorExit
+  firstLoop gs `catch` errorExit
   where 
-    firstLoop fps gs = do 
+    firstLoop gs = do 
       (_, gs') <- stepGame gs $ do
         win <- liftIO $ initWindow "Gore&Ash LambdaCube Example 04" 640 640
         setCurrentWindowM $ Just win 
@@ -51,11 +50,12 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
             "modelMat"       @: M44F
             "viewMat"        @: M44F
             "projMat"        @: M44F
+            "depthMVP"       @: M44F
             "diffuseTexture" @: FTexture2D
             "lightDir"       @: V3F
 
         return ()
-      gameLoop fps gs'
+      gameLoop gs'
 
     errorExit e = do 
       liftIO $ case e of 
@@ -66,12 +66,11 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
         PipeLineIncompatible _ msg -> putStrLn $ "Pipeline incompatible: " ++ msg
       fail "terminate: fatal error"
 
-    gameLoop fps gs = do
-      waitFPSBound fps 
+    gameLoop gs = do
       (mg, gs') <- stepGame gs (return ())
       mg `deepseq` if fromMaybe False $ gameExit <$> join mg
         then cleanupGameState gs'
-        else gameLoop fps gs'
+        else gameLoop gs'
 
 initWindow :: String -> Int -> Int -> IO GLFW.Window
 initWindow title width height = do
@@ -133,7 +132,7 @@ renderWire storage gpuMesh = (<|> pure Nothing) $ proc _ -> do
   globalUniforms :: AppWire (Float, Float) ()
   globalUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
     LambdaCubeGL.updateUniforms storage $ do
-      "viewMat" @= return depthMVP --(cameraMatrix t)
+      "viewMat" @= return (cameraMatrix t)
       "projMat" @= return (projMatrix aspect)
       "lightDir" @= return lightDirection
 
@@ -149,7 +148,7 @@ cube storage gpuMesh = withInit (const initCube) (uncurry renderCube)
   initCube = do 
     -- upload geometry to GPU and add to pipeline input
     obj <- liftIO $
-      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture"] gpuMesh
+      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture", "depthMVP"] gpuMesh
 
     -- load image and upload texture
     texLogoData <- liftIO $ do 
@@ -163,6 +162,7 @@ cube storage gpuMesh = withInit (const initCube) (uncurry renderCube)
   renderCube obj textureData = (timeF >>>) $ liftGameMonad1 $ \t -> liftIO $ do 
     let setter = LambdaCubeGL.objectUniformSetter obj
     uniformM44F "modelMat" setter $ modelMatrixCube t
+    uniformM44F "depthMVP" setter $ depthMVPCube t
     uniformFTexture2D "diffuseTexture" setter textureData
 
 -- | Initializes and renders wall
@@ -173,7 +173,7 @@ wall storage gpuMesh = withInit (const initWall) (uncurry renderWall)
   initWall = do 
     -- upload geometry to GPU and add to pipeline input
     obj <- liftIO $
-      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture"] gpuMesh
+      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture", "depthMVP"] gpuMesh
 
     -- load image and upload texture
     texLogoData <- liftIO $ do 
@@ -187,6 +187,7 @@ wall storage gpuMesh = withInit (const initWall) (uncurry renderWall)
   renderWall obj textureData = liftGameMonad . liftIO $ do 
     let setter = LambdaCubeGL.objectUniformSetter obj
     uniformM44F "modelMat" setter modelMatrixWall
+    uniformM44F "depthMVP" setter depthMVPWall
     uniformFTexture2D "diffuseTexture" setter textureData
 
 -- | Helper to run initalization step for wire
