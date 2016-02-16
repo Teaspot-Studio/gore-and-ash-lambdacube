@@ -95,30 +95,26 @@ data Game = Game {
 instance NFData Game 
 
 mainWire :: AppWire a (Maybe Game)
-mainWire = withInit (const initStorage) renderWire
+mainWire = withInit (const initStorage) (uncurry renderWire)
 
 -- | Initalizes storage and then switches to rendering state
-initStorage :: GameMonadT AppMonad GLStorage
+initStorage :: GameMonadT AppMonad (GLStorage, GPUMesh)
 initStorage = do 
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
-  {-
-  texBrickData <- liftIO $ do 
-    -- load image and upload texture
-    Right img <- Juicy.readImage "../shared/brick.jpg"
-    LambdaCubeGL.uploadTexture2DToGPU img
-  -}
+  gpuMesh <- liftIO $ LambdaCubeGL.uploadMeshToGPU cubeMesh
   lambdacubeRenderStorageFirst sid
-  return storage
+  return (storage, gpuMesh)
 
 -- | Infinitely render given storage
-renderWire :: GLStorage -> AppWire a (Maybe Game)
-renderWire storage = (<|> pure Nothing) $ proc _ -> do
+renderWire :: GLStorage -> GPUMesh -> AppWire a (Maybe Game)
+renderWire storage gpuMesh = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
   aspect <- updateWinSize -< w
   t <- timeF -< ()
-  renderStorage -< (aspect, t)
-  cube storage -< ()
+  globalUniforms -< (aspect, t)
+  cube storage gpuMesh -< ()
+  wall storage gpuMesh -< ()
   glfwFinishFrame -< w
   returnA -< Just $ Game closed
   where
@@ -134,26 +130,25 @@ renderWire storage = (<|> pure Nothing) $ proc _ -> do
     return $ fromIntegral w / fromIntegral h
 
   -- | Updates storage uniforms
-  renderStorage :: AppWire (Float, Float) ()
-  renderStorage = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
+  globalUniforms :: AppWire (Float, Float) ()
+  globalUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
     LambdaCubeGL.updateUniforms storage $ do
       "viewMat" @= return (cameraMatrix t)
       "projMat" @= return (projMatrix aspect)
-      "lightDir" @= return (V3 3 3 3 :: V3F)
+      "lightDir" @= return (V3 (-3) 1 0 :: V3F)
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
   glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
 
 -- | Intializes and renders cube
-cube :: GLStorage -> AppWire a ()
-cube storage = withInit (const initCube) (uncurry renderCube)
+cube :: GLStorage -> GPUMesh -> AppWire a ()
+cube storage gpuMesh = withInit (const initCube) (uncurry renderCube)
   where
   initCube :: GameMonadT AppMonad (Object, TextureData)
   initCube = do 
     -- upload geometry to GPU and add to pipeline input
-    obj <- liftIO $ do
-      gpuMesh <- LambdaCubeGL.uploadMeshToGPU cubeMesh
+    obj <- liftIO $
       LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture"] gpuMesh
 
     -- load image and upload texture
@@ -167,7 +162,31 @@ cube storage = withInit (const initCube) (uncurry renderCube)
   renderCube :: Object -> TextureData -> AppWire a ()
   renderCube obj textureData = (timeF >>>) $ liftGameMonad1 $ \t -> liftIO $ do 
     let setter = LambdaCubeGL.objectUniformSetter obj
-    uniformM44F "modelMat" setter $ modelMatrix t
+    uniformM44F "modelMat" setter $ modelMatrixCube t
+    uniformFTexture2D "diffuseTexture" setter textureData
+
+-- | Initializes and renders wall
+wall :: GLStorage -> GPUMesh -> AppWire a ()
+wall storage gpuMesh = withInit (const initWall) (uncurry renderWall)
+  where
+  initWall :: GameMonadT AppMonad (Object, TextureData)
+  initWall = do 
+    -- upload geometry to GPU and add to pipeline input
+    obj <- liftIO $
+      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture"] gpuMesh
+
+    -- load image and upload texture
+    texLogoData <- liftIO $ do 
+      Right img <- Juicy.readImage "../shared/brick.jpg"
+      LambdaCubeGL.uploadTexture2DToGPU img
+
+    return (obj, texLogoData)
+
+  -- | Update object specific uniforms
+  renderWall :: Object -> TextureData -> AppWire a ()
+  renderWall obj textureData = liftGameMonad . liftIO $ do 
+    let setter = LambdaCubeGL.objectUniformSetter obj
+    uniformM44F "modelMat" setter modelMatrixWall
     uniformFTexture2D "diffuseTexture" setter textureData
 
 -- | Helper to run initalization step for wire

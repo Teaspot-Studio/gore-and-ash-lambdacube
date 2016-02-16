@@ -1,11 +1,13 @@
 module Matrix(
-    modelMatrix
+    modelMatrixCube
+  , modelMatrixWall
   , cameraMatrix
   , projMatrix
   ) where
 
 import Linear
 import qualified LambdaCube.Linear as LC 
+import Game.GoreAndAsh.Math 
 
 -- | Convert from linear matrix format to LambdaCube format
 convLC :: M44 Float -> LC.M44F 
@@ -13,9 +15,13 @@ convLC (V4 !a !b !c !d) =  LC.V4 (cv a) (cv b) (cv c) (cv d)
   where
     cv (V4 !x !y !z !w) = LC.V4 x y z w
 
--- | Model matrix, maps from local model coords to world coords
-modelMatrix :: Float -> LC.M44F 
-modelMatrix t = convLC . quatMatrix $ axisAngle (normalize $ V3 1 1 3) t 
+-- | Model matrix for rotating cube, maps from local model coords to world coords
+modelMatrixCube :: Float -> LC.M44F 
+modelMatrixCube t = convLC . quatMatrix $ axisAngle (normalize $ V3 1 1 3) t 
+
+-- | Model matrix for static wall, maps from local model coords to world coords
+modelMatrixWall :: LC.M44F 
+modelMatrixWall = convLC $ scale (V3 1 7 7) !*! translate (V3 (-3) 0 0)
 
 -- | Camera matrix, maps from world coords to camera coords
 cameraMatrix :: Float -> LC.M44F 
