@@ -133,9 +133,9 @@ renderWire storage gpuMesh = (<|> pure Nothing) $ proc _ -> do
   globalUniforms :: AppWire (Float, Float) ()
   globalUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
     LambdaCubeGL.updateUniforms storage $ do
-      "viewMat" @= return (cameraMatrix t)
+      "viewMat" @= return depthMVP --(cameraMatrix t)
       "projMat" @= return (projMatrix aspect)
-      "lightDir" @= return (V3 (-3) 1 0 :: V3F)
+      "lightDir" @= return lightDirection
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
