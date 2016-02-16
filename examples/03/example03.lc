@@ -48,15 +48,22 @@ makeFrame (modelMat :: Mat 4 4 Float)
         specColor = V3 1 1 1 
         shininess = 64.0
 
+        lightPower = 40
+        linearFade = 3
+        squareFade = 3
+
         lightPosView = unhomonize $ transpose viewMat *. homonize lightPos
         lightDir = normalize $ lightPosView - vertPos
+        lightDist = length $ lightPosView - vertPos
+        lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist)
+
         lambertian = max (lightDir `dot` normal) 0
         viewDir = normalize (vertPos *! (-1))
         halfDir = normalize $ lightDir + viewDir
         specAngle = max (halfDir `dot` normal) 0
         specular = if lambertian <= 0 then 0 else pow specAngle shininess
 
-        colorLinear = ambientColor + (diffuseColor%xyz) *! lambertian + specColor *! specular
+        colorLinear = ambientColor + (diffuseColor%xyz) *! (lambertian * lightFade) + specColor *! (specular * lightFade)
 
 main :: Output
 main = renderFrame $
