@@ -34,7 +34,7 @@ mainPipeline = "mainPipeline"
 
 main :: IO ()
 main = withModule (Proxy :: Proxy AppMonad) $ do
-  gs <- newGameState initStorage
+  gs <- newGameState mainWire
   fps <- makeFPSBounder 180
   firstLoop fps gs `catch` errorExit
   where 
@@ -94,28 +94,31 @@ data Game = Game {
 
 instance NFData Game 
 
--- | Initalizes storage and then switches to rendering state
-initStorage :: AppWire a (Maybe Game)
-initStorage = mkGen $ \_ _ -> do 
-  (sid, storage) <- lambdacubeCreateStorage mainPipeline
-  textureData <- liftIO $ do 
-    -- upload geometry to GPU and add to pipeline input
-    _ <- LambdaCubeGL.uploadMeshToGPU cubeMesh >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
-    
-    -- load image and upload texture
-    Right img <- Juicy.readImage "../shared/logo.png"
-    LambdaCubeGL.uploadTexture2DToGPU img
+mainWire :: AppWire a (Maybe Game)
+mainWire = withInit (const initStorage) renderWire
 
+-- | Initalizes storage and then switches to rendering state
+initStorage :: GameMonadT AppMonad GLStorage
+initStorage = do 
+  (sid, storage) <- lambdacubeCreateStorage mainPipeline
+  {-
+  texBrickData <- liftIO $ do 
+    -- load image and upload texture
+    Right img <- Juicy.readImage "../shared/brick.jpg"
+    LambdaCubeGL.uploadTexture2DToGPU img
+  -}
   lambdacubeRenderStorageFirst sid
-  return (Right Nothing, renderWire storage textureData)
+  return storage
 
 -- | Infinitely render given storage
-renderWire :: GLStorage -> TextureData -> AppWire a (Maybe Game)
-renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
+renderWire :: GLStorage -> AppWire a (Maybe Game)
+renderWire storage = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
   aspect <- updateWinSize -< w
-  renderStorage -< aspect
+  t <- timeF -< ()
+  renderStorage -< (aspect, t)
+  cube storage -< ()
   glfwFinishFrame -< w
   returnA -< Just $ Game closed
   where
@@ -131,23 +134,49 @@ renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
     return $ fromIntegral w / fromIntegral h
 
   -- | Updates storage uniforms
-  renderStorage :: AppWire Float ()
-  renderStorage = proc aspect -> do 
-    t <- timeF -< ()
-    fillUniforms -< (aspect, t)
-    where
-    fillUniforms :: AppWire (Float, Float) ()
-    fillUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
-      LambdaCubeGL.updateUniforms storage $ do
-        "diffuseTexture" @= return textureData
-        "modelMat" @= return (modelMatrix t)
-        "viewMat" @= return (cameraMatrix t)
-        "projMat" @= return (projMatrix aspect)
-        "lightDir" @= return (V3 3 3 3 :: V3F)
+  renderStorage :: AppWire (Float, Float) ()
+  renderStorage = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
+    LambdaCubeGL.updateUniforms storage $ do
+      "viewMat" @= return (cameraMatrix t)
+      "projMat" @= return (projMatrix aspect)
+      "lightDir" @= return (V3 3 3 3 :: V3F)
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
   glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
+
+-- | Intializes and renders cube
+cube :: GLStorage -> AppWire a ()
+cube storage = withInit (const initCube) (uncurry renderCube)
+  where
+  initCube :: GameMonadT AppMonad (Object, TextureData)
+  initCube = do 
+    -- upload geometry to GPU and add to pipeline input
+    obj <- liftIO $ do
+      gpuMesh <- LambdaCubeGL.uploadMeshToGPU cubeMesh
+      LambdaCubeGL.addMeshToObjectArray storage "objects" ["modelMat", "diffuseTexture"] gpuMesh
+
+    -- load image and upload texture
+    texLogoData <- liftIO $ do 
+      Right img <- Juicy.readImage "../shared/logo.png"
+      LambdaCubeGL.uploadTexture2DToGPU img
+
+    return (obj, texLogoData)
+
+  -- | Update object specific uniforms
+  renderCube :: Object -> TextureData -> AppWire a ()
+  renderCube obj textureData = (timeF >>>) $ liftGameMonad1 $ \t -> liftIO $ do 
+    let setter = LambdaCubeGL.objectUniformSetter obj
+    uniformM44F "modelMat" setter $ modelMatrix t
+    uniformFTexture2D "diffuseTexture" setter textureData
+
+-- | Helper to run initalization step for wire
+-- TODO: move to core package
+withInit :: (c -> GameMonadT AppMonad a) -> (a -> AppWire c b) -> AppWire c b 
+withInit initStep nextStep = mkGen $ \s c -> do 
+  a <- initStep c
+  (mb, nextStep') <- stepWire (nextStep a) s (Right c)
+  return (mb, nextStep')
 
 -- | Inhibits if gets Nothing
 nothingInhibit :: AppWire (Maybe a) a 
