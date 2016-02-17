@@ -3,6 +3,7 @@ type PositionHomo = Vec 4 Float
 type Normal = Vec 3 Float
 type UV = Vec 2 Float
 type Color = Vec 4 Float 
+type Direction = Vec 3 Float 
 
 homonize :: Vec 3 Float -> Vec 4 Float 
 homonize v = V4 v%x v%y v%z 1 
@@ -17,14 +18,14 @@ makeFrame (modelMat :: Mat 4 4 Float)
           (viewMat :: Mat 4 4 Float)
           (projMat :: Mat 4 4 Float)
           (texture :: Texture)
-          (lightPos :: Vec 3 Float)
+          (lightPos :: Vec 3 Float) -- world space
           (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0.4 1))
   `overlay`
       prims
     & mapPrimitives transform
-    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth)
+    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth, Smooth, Smooth)
     & mapFragments enlight
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
   where
@@ -32,38 +33,41 @@ makeFrame (modelMat :: Mat 4 4 Float)
     mvp = transpose $ mv .*. projMat -- loaded matricies are in OpenGL format, need transpose
     viewmatInvT = inv mv
 
-    transNormal :: Normal -> Normal
-    transNormal = normalize . unhomonize . (viewmatInvT *.) . homonize
+    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV, Direction, Direction)
+    transform (p,n,uv) = (pproj, pworld, normalCamspace, uv, eyeDirCamspace, lightDirCamspace)
+      where pproj = mvp *. homonize p
+            pworld = unhomonize $ transpose modelMat *. homonize p
+            pcam = unhomonize $ (transpose $ modelMat .*. viewMat) *. homonize p
+            eyeDirCamspace = pcam *! (-1)
+            lightPosCamspace = unhomonize $ transpose viewMat *. homonize lightPos
+            lightDirCamspace = lightPosCamspace + eyeDirCamspace
+            normalCamspace = unhomonize $ viewmatInvT *. homonize n
 
-    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV)
-    transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv)
-      where p' = mvp *. homonize p
-            pview = (transpose $ modelMat .*. viewMat) *. homonize p
-
-    enlight :: (Position, Normal, UV) -> Color
-    enlight (vertPos, normal, uv) = homonize colorLinear
+    enlight :: (Position, Normal, UV, Direction, Direction) -> Color
+    enlight (pworld, normalCamspace, uv, eyeDirCamspace, lightDir) = homonize colorLinear
       where 
-        ambientColor = V3 0 0 0
         diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float
-        specColor = V3 1 1 1 
-        shininess = 64.0
+        ambientColor = diffuseColor%xyz *! 0.1 :: Vec 3 Float
+        specColor = V3 1 1 1 :: Vec 3 Float
+        shininess = 64.0 :: Float
 
-        lightPower = 40
-        linearFade = 3
-        squareFade = 3
+        lightPower = 40 :: Float
+        linearFade = 3 :: Float
+        squareFade = 3 :: Float
 
-        lightPosView = unhomonize $ transpose viewMat *. homonize lightPos
-        lightDir = normalize $ lightPosView - vertPos
-        lightDist = length $ lightPosView - vertPos
-        lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist)
+        n = normalize normalCamspace :: Vec 3 Float
+        l = normalize lightDir :: Vec 3 Float
+        lightDist = length $ lightPos - pworld :: Float
+        lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist) :: Float
 
-        lambertian = max (lightDir `dot` normal) 0
-        viewDir = normalize (vertPos *! (-1))
-        halfDir = normalize $ lightDir + viewDir
-        specAngle = max (halfDir `dot` normal) 0
-        specular = if lambertian <= 0 then 0 else pow specAngle shininess
+        lambertian = min (max (n `dot` l) 0) 1 :: Float
+        e = normalize eyeDirCamspace :: Vec 3 Float
+        r = reflect (l *! (-1)) n :: Vec 3 Float
+        cosAlpha = max 0 (min 1 $ e `dot` r) :: Float
+        specular = if lambertian <= 0 then 0 else pow cosAlpha shininess :: Float
 
-        colorLinear = ambientColor + (diffuseColor%xyz) *! (lambertian * lightFade) + specColor *! (specular * lightFade)
+        colorLinear :: Vec 3 Float
+        colorLinear = ambientColor + diffuseColor%xyz *! (lambertian * lightFade) + specColor *! (specular * lightFade)
 
 main :: Output
 main = renderFrame $
