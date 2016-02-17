@@ -3,6 +3,7 @@ type PositionHomo = Vec 4 Float
 type Normal = Vec 3 Float
 type UV = Vec 2 Float
 type Color = Vec 4 Float 
+type ShadowCoord = Vec 4 Float 
 
 homonize :: Vec 3 Float -> Vec 4 Float 
 homonize v = V4 v%x v%y v%z 1 
@@ -13,6 +14,18 @@ unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 vec3 :: Float -> Vec 3 Float 
 vec3 a = V3 a a a 
 
+shadowMapSize :: Int 
+shadowMapSize = 1024
+
+-- | Transforms [-1 .. 1] range to [0 .. 1]
+biasMatrix :: Mat 4 4 Float 
+biasMatrix = M44F 
+  (V4 0.5 0.0 0.0 0.0)
+  (V4 0.0 0.5 0.0 0.0)
+  (V4 0.0 0.0 0.5 0.0)
+  (V4 0.5 0.5 0.5 1.0)
+
+-- | Raster objects from view of directed light and save depth
 makeShadowMap (depthMVP :: Mat 4 4 Float)
               (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
@@ -24,11 +37,14 @@ makeShadowMap (depthMVP :: Mat 4 4 Float)
     & mapFragments (\v -> v%zzzw)
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
 
+-- | Final render of object using shadow map generated at previous pass
 makeFrame (modelMat :: Mat 4 4 Float)
           (viewMat :: Mat 4 4 Float)
           (projMat :: Mat 4 4 Float)
           (texture :: Texture)
           (lightDirection :: Vec 3 Float)
+          (shadowMap :: Texture)
+          (depthMVP :: Mat 4 4 Float)
           (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0.4 1))
@@ -40,8 +56,8 @@ makeFrame (modelMat :: Mat 4 4 Float)
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
   where
     mv = modelMat .*. viewMat
-    mvp = transpose $ mv .*. projMat -- loaded matricies are in OpenGL format, need transpose
-    viewmatInvT = inv mv
+    mvp = transpose $ mv .*. projMat -- loaded matricies are transposed
+    viewmatInvT = inv mv -- double transpose eliminated
 
     transNormal :: Normal -> Normal
     transNormal = normalize . unhomonize . (viewmatInvT *.) . homonize
@@ -50,6 +66,7 @@ makeFrame (modelMat :: Mat 4 4 Float)
     transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv)
       where p' = mvp *. homonize p
             pview = (transpose $ modelMat .*. viewMat) *. homonize p
+            --shadowCoord = (biasMatrix .*. depthMVP) *. homonize p
 
     enlight :: (Position, Normal, UV) -> Color
     enlight (vertPos, normal, uv) = homonize colorLinear
@@ -58,10 +75,6 @@ makeFrame (modelMat :: Mat 4 4 Float)
         diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float
         specColor = V3 1 1 1 
         shininess = 64.0
-
-        lightPower = 40
-        linearFade = 3
-        squareFade = 3
 
         lightDirView = unhomonize $ transpose viewMat *. homonize lightDirection
         lightDir = normalize $ lightDirView *! (-1)
@@ -77,12 +90,15 @@ makeFrame (modelMat :: Mat 4 4 Float)
 
 main :: Output
 main = renderFrame $
-  makeShadowMap (Uniform "depthMVP") objects
-  --makeFrame (Uniform "modelMat") 
-  --          (Uniform "viewMat")
-  --          (Uniform "projMat")
-  --          (Texture2DSlot "diffuseTexture")
-  --          (Uniform "lightDir")
-  --          objects
+  let shadowMap = Texture2D (V2 shadowMapSize shadowMapSize) . PrjImageColor $ makeShadowMap depthMVP objects
+  in makeFrame (Uniform "modelMat") 
+            (Uniform "viewMat")
+            (Uniform "projMat")
+            (Texture2DSlot "diffuseTexture")
+            (Uniform "lightDir")
+            shadowMap
+            depthMVP
+            objects
   where
+    depthMVP = Uniform "depthMVP"
     objects = fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv")
