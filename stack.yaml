@@ -8,15 +8,15 @@ packages:
 - '.'
 - location:
     git: git@github.com:lambdacube3d/lambdacube-gl.git
-    commit: c568e8e6eeb117eb18ca7b57f74f39c01cc8ee37
+    commit: 200517cace521fe9dd2195a497e14030b0303df5
 - location:
     git: git@github.com:lambdacube3d/lambdacube-ir.git
-    commit: a9083eb718c3f30a209410d67ed431c3b7d710f4
+    commit: aa375a66800e577d928c92d7cd405a43ffdec728
   subdirs:
   - lambdacube-ir.haskell
 - location:
     git: git@github.com:lambdacube3d/lambdacube-compiler.git
-    commit: 84516a297bd751afe7e207b106c3a20c03829f12
+    commit: 02d18fe787cbe69d422ad9f76a5324f6ba86f4da
 - '../gore-and-ash-glfw'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
@@ -31,6 +31,7 @@ extra-deps:
 - pretty-compact-1.0
 - QuickCheck-2.8.2
 - text-1.2.2.0
+- vect-0.4.7
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -125,8 +125,6 @@ type instance Split z (RecordC xs) (RecordC ys) | defined xs &&& defined ys = T2
 record :: [(String, Type)] -> Type
 --record xs = RecordCons ({- TODO: sortBy fst-} xs)
 -}
--- builtin
-unsafeCoerce :: forall a b . a -> b
 
 isKeyC _ _ [] = 'Empty ""
 isKeyC s t ((s', t'): ss) = if s == s' then t ~ t' else isKeyC s t ss
@@ -355,7 +353,9 @@ lookat pos target up = translateBefore4 (neg pos) (orthogonal $ toOrthoUnsafe r)
 scale t v = v * V4 t t t 1.0
 
 fromTo :: Float -> Float -> [Float]
-fromTo a b = if a > b then [] else a: fromTo (a +! 1.0) b
+fromTo a b
+    | a > b = []
+    | otherwise = a: fromTo (a + 1) b
 
 (!!) :: [a] -> Int -> a
 (x : _)  !! 0  =  x
