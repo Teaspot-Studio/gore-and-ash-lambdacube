@@ -384,6 +384,10 @@ type family InterpolatedType a where
     InterpolatedType (Interpolated a) = a
     InterpolatedType (Interpolated a, Interpolated b) = (a, b)
     InterpolatedType (Interpolated a, Interpolated b, Interpolated c) = (a, b, c)
+    InterpolatedType (Interpolated a, Interpolated b, Interpolated c, Interpolated d) = (a, b, c, d)
+    InterpolatedType (Interpolated a, Interpolated b, Interpolated c, Interpolated d, Interpolated f) = (a, b, c, d, f)
+    InterpolatedType (Interpolated a, Interpolated b, Interpolated c, Interpolated d, Interpolated f, Interpolated e) = (a, b, c, d, f, e)
+    InterpolatedType (Interpolated a, Interpolated b, Interpolated c, Interpolated d, Interpolated f, Interpolated e, Interpolated g) = (a, b, c, d, f, e, g)
 
 rasterizePrimitive
     :: ( b ~ InterpolatedType interpolation

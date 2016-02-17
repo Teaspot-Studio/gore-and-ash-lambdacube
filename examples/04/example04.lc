@@ -51,7 +51,7 @@ makeFrame (modelMat :: Mat 4 4 Float)
    `overlay`
       prims
     & mapPrimitives transform
-    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth)
+    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth, Smooth)
     & mapFragments enlight
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
   where
@@ -62,14 +62,14 @@ makeFrame (modelMat :: Mat 4 4 Float)
     transNormal :: Normal -> Normal
     transNormal = normalize . unhomonize . (viewmatInvT *.) . homonize
 
-    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV)
-    transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv)
+    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV, ShadowCoord)
+    transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv, shadowCoord)
       where p' = mvp *. homonize p
             pview = (transpose $ modelMat .*. viewMat) *. homonize p
-            --shadowCoord = (biasMatrix .*. depthMVP) *. homonize p
+            shadowCoord = (biasMatrix .*. depthMVP) *. homonize p
 
-    enlight :: (Position, Normal, UV) -> Color
-    enlight (vertPos, normal, uv) = homonize colorLinear
+    enlight :: (Position, Normal, UV, ShadowCoord) -> Color
+    enlight (vertPos, normal, uv, shadowCoord) = homonize colorLinear
       where 
         ambientColor = V3 0 0 0
         diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float

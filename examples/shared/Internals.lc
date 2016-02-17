@@ -29,6 +29,8 @@ data Tuple2 a b = Tuple2 a b
 data Tuple3 a b c = Tuple3 a b c
 data Tuple4 a b c d = Tuple4 a b c d
 data Tuple5 a b c d e = Tuple5 a b c d e
+data Tuple6 a b c d e f = Tuple6 a b c d e f
+data Tuple7 a b c d e f g = Tuple7 a b c d e f g
 
 -- ... TODO
 
@@ -41,6 +43,8 @@ type family JoinTupleType t1 t2 where
     JoinTupleType a (b, c) = (a, b, c)
     JoinTupleType a (b, c, d) = (a, b, c, d)
     JoinTupleType a (b, c, d, e) = (a, b, c, d, e)
+    JoinTupleType a (b, c, d, e, f) = (a, b, c, d, e, f)
+    JoinTupleType a (b, c, d, e, f, g) = (a, b, c, d, e, f, g)
     JoinTupleType a b = (a, b)
 
 -- conjuction of constraints

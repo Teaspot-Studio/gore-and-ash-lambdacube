@@ -15,8 +15,8 @@ packages:
   subdirs:
   - lambdacube-ir.haskell
 - location:
-    git: git@github.com:lambdacube3d/lambdacube-compiler.git
-    commit: 02d18fe787cbe69d422ad9f76a5324f6ba86f4da
+    git: git@github.com:Teaspot-Studio/lambdacube-compiler.git
+    commit: 2c53caeba24d9f37acb05f3a0b30361ffd25dffa
 - '../gore-and-ash-glfw'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
