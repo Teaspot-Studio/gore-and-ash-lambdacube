@@ -46,27 +46,26 @@ makeFrame (modelMat :: Mat 4 4 Float)
     enlight :: (Position, Normal, UV, Direction, Direction) -> Color
     enlight (pworld, normalCamspace, uv, eyeDirCamspace, lightDir) = homonize colorLinear
       where 
-        diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float
-        ambientColor = diffuseColor%xyz *! 0.1 :: Vec 3 Float
-        specColor = V3 1 1 1 :: Vec 3 Float
-        shininess = 64.0 :: Float
+        diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv
+        ambientColor = diffuseColor%xyz *! 0.1
+        specColor = V3 1 1 1
+        shininess = 64.0
 
-        lightPower = 40 :: Float
-        linearFade = 3 :: Float
-        squareFade = 3 :: Float
+        lightPower = 40
+        linearFade = 3
+        squareFade = 3
 
-        n = normalize normalCamspace :: Vec 3 Float
-        l = normalize lightDir :: Vec 3 Float
-        lightDist = length $ lightPos - pworld :: Float
-        lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist) :: Float
+        n = normalize normalCamspace
+        l = normalize lightDir 
+        lightDist = length $ lightPos - pworld
+        lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist)
 
-        lambertian = min (max (n `dot` l) 0) 1 :: Float
-        e = normalize eyeDirCamspace :: Vec 3 Float
-        r = reflect (l *! (-1)) n :: Vec 3 Float
-        cosAlpha = max 0 (min 1 $ e `dot` r) :: Float
-        specular = if lambertian <= 0 then 0 else pow cosAlpha shininess :: Float
+        lambertian = min (max (n `dot` l) 0) 1
+        e = normalize eyeDirCamspace 
+        r = reflect (l *! (-1)) n 
+        cosAlpha = max 0 (min 1 $ e `dot` r) 
+        specular = if lambertian <= 0 then 0 else pow cosAlpha shininess
 
-        colorLinear :: Vec 3 Float
         colorLinear = ambientColor + diffuseColor%xyz *! (lambertian * lightFade) + specColor *! (specular * lightFade)
 
 main :: Output
