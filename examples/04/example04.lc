@@ -4,6 +4,7 @@ type Normal = Vec 3 Float
 type UV = Vec 2 Float
 type Color = Vec 4 Float 
 type ShadowCoord = Vec 4 Float 
+type Direction = Vec 3 Float 
 
 homonize :: Vec 3 Float -> Vec 4 Float 
 homonize v = V4 v%x v%y v%z 1 
@@ -14,16 +15,19 @@ unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 vec3 :: Float -> Vec 3 Float 
 vec3 a = V3 a a a 
 
-shadowMapSize :: Int 
-shadowMapSize = 1024
+shadowMapSize :: Vec 2 Int 
+shadowMapSize = V2 640 640
+
+windowSize :: Vec 2 Int 
+windowSize = V2 640 640 
 
 -- | Transforms [-1 .. 1] range to [0 .. 1]
 biasMatrix :: Mat 4 4 Float 
 biasMatrix = M44F 
   (V4 0.5 0.0 0.0 0.0)
   (V4 0.0 0.5 0.0 0.0)
-  (V4 0.0 0.0 0.5 0.0)
-  (V4 0.5 0.5 0.5 1.0)
+  (V4 0.0 0.0 1.0 0.0)
+  (V4 0.5 0.5 0.0 1.0) 
 
 -- | Raster objects from view of directed light and save depth
 makeShadowMap (depthMVP :: Mat 4 4 Float)
@@ -32,9 +36,23 @@ makeShadowMap (depthMVP :: Mat 4 4 Float)
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 1 1 1 1.0))
     `overlay`
       prims 
-    & mapPrimitives (\(v, n, uv) -> let v' = depthMVP *. homonize v in (v', v'))
-    & rasterizePrimitives (TriangleCtx CullBack PolygonFill NoOffset LastVertex) Smooth
+    & mapPrimitives (\(v, n, _) -> let v' = depthMVP *. homonize v in (v', v'))
+    & rasterizePrimitives (TriangleCtx CullFront PolygonFill NoOffset LastVertex) Smooth
     & mapFragments (\v -> v%zzzw)
+    & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
+
+-- | Save diffuse info into buffer 
+diffuseBuffer (modelMat :: Mat 4 4 Float)
+              (viewMat :: Mat 4 4 Float)
+              (projMat :: Mat 4 4 Float)
+              (texture :: Texture)
+              (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
+  = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0 1.0))
+  `overlay`
+      prims 
+    & mapPrimitives (\(v, _, uv) -> (transpose (modelMat .*. viewMat .*. projMat) *. homonize v, uv))
+    & rasterizePrimitives (TriangleCtx CullFront PolygonFill NoOffset LastVertex) Smooth
+    & mapFragments (\uv -> texture2D (Sampler PointFilter MirroredRepeat texture) uv)
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
 
 -- | Final render of object using shadow map generated at previous pass
@@ -42,63 +60,65 @@ makeFrame (modelMat :: Mat 4 4 Float)
           (viewMat :: Mat 4 4 Float)
           (projMat :: Mat 4 4 Float)
           (texture :: Texture)
-          (lightDirection :: Vec 3 Float)
+          (lightDirWorld :: Vec 3 Float) -- world space
           (shadowMap :: Texture)
           (depthMVP :: Mat 4 4 Float)
           (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
 
     = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0.4 1))
-   `overlay`
+  `overlay`
       prims
     & mapPrimitives transform
-    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth, Smooth)
+    & rasterizePrimitives (TriangleCtx CullFront PolygonFill NoOffset LastVertex) (Smooth, Smooth, Smooth, Smooth, Smooth)
     & mapFragments enlight
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
   where
-    mv = modelMat .*. viewMat
-    mvp = transpose $ mv .*. projMat -- loaded matricies are transposed
-    viewmatInvT = inv mv -- double transpose eliminated
-
-    transNormal :: Normal -> Normal
-    transNormal = normalize . unhomonize . (viewmatInvT *.) . homonize
-
-    transform :: (Position, Normal, UV) -> (PositionHomo, Position, Normal, UV, ShadowCoord)
-    transform (p,n,uv) = (p', unhomonize pview, transNormal n, uv, shadowCoord)
-      where p' = mvp *. homonize p
-            pview = (transpose $ modelMat .*. viewMat) *. homonize p
+    transform :: (Position, Normal, UV) -> (PositionHomo, PositionHomo, Normal, Direction, Direction, ShadowCoord)
+    transform (p,n,uv) = (pproj, biasMatrix *. pproj, normalCamspace, eyeDirCamspace, lightDirCamspace, shadowCoord)
+      where pproj = transpose (modelMat .*. viewMat .*. projMat) *. homonize p
+            pcam = unhomonize $ (transpose $ modelMat .*. viewMat) *. homonize p
+            eyeDirCamspace = pcam *! (-1)
+            lightPosCamspace = unhomonize $ transpose viewMat *. homonize (lightDirWorld *! (-1000))
+            lightDirCamspace = lightPosCamspace + eyeDirCamspace
+            viewmatInvT = inv $ modelMat .*. viewMat
+            normalCamspace = unhomonize $ viewmatInvT *. homonize n
             shadowCoord = (biasMatrix .*. depthMVP) *. homonize p
 
-    enlight :: (Position, Normal, UV, ShadowCoord) -> Color
-    enlight (vertPos, normal, uv, shadowCoord) = homonize colorLinear
+    enlight :: (PositionHomo, Normal, Direction, Direction, ShadowCoord) -> Color
+    enlight (pproj, normalCamspace, eyeDirCamspace, lightDir, shadowCoord) = homonize colorLinear
       where 
-        ambientColor = V3 0 0 0
-        diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv :: Vec 4 Float
-        specColor = V3 1 1 1 
+        diffusePos = unhomonize pproj -- /! 2 +! 0.5
+        diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) diffusePos%xy
+        ambientColor = diffuseColor%xyz *! 0.1
+        specColor = V3 1 1 1
         shininess = 64.0
 
-        lightDirView = unhomonize $ transpose viewMat *. homonize lightDirection
-        lightDir = normalize $ lightDirView *! (-1)
+        n = normalize normalCamspace
+        l = normalize lightDir
+        lambertian = min 1 (max 0 $ n `dot` l)
 
-        lambertian = max (lightDir `dot` normal) 0
-        viewDir = normalize (vertPos *! (-1))
-        halfDir = normalize $ lightDir + viewDir
-        specAngle = max (halfDir `dot` normal) 0
-        specular = if lambertian <= 0 then 0 else pow specAngle shininess
+        shadowSample = texture2D (Sampler LinearFilter MirroredRepeat shadowMap) shadowCoord%xy
+        bias' = 0.05 * (tan $ acos lambertian)
+        bias = max (min bias' 0.1) 0.0 
+        inshade = shadowSample%z < shadowCoord%z - bias
 
-        colorLinear = ambientColor + (diffuseColor%xyz) *! lambertian + specColor *! specular
-
+        e = normalize eyeDirCamspace 
+        r = reflect (l *! (-1)) n 
+        cosAlpha = max 0 (min 1 $ e `dot` r) 
+        specular = if lambertian <= 0 then 0 else pow cosAlpha shininess
+        visibility = if inshade then 0.1 else 1.0
+        colorLinear = ambientColor + diffuseColor%xyz *! (lambertian * visibility) + specColor *! (specular * visibility)
 
 main :: Output
 main = renderFrame $
-  let shadowMap = Texture2D (V2 shadowMapSize shadowMapSize) . PrjImageColor $ makeShadowMap depthMVP objects
-  in makeFrame (Uniform "modelMat") 
-            (Uniform "viewMat")
-            (Uniform "projMat")
-            (Texture2DSlot "diffuseTexture")
-            (Uniform "lightDir")
-            shadowMap
-            depthMVP
-            objects
+  let shadowMap = Texture2D shadowMapSize . PrjImageColor $ makeShadowMap depthMVP objects
+      diffuseMap = Texture2D windowSize . PrjImageColor $ diffuseBuffer modelMap viewMat projMat diffuseTex objects
+  in makeFrame modelMap viewMat projMat diffuseMap lightDir shadowMap depthMVP objects
   where
     depthMVP = Uniform "depthMVP"
     objects = fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv")
+    modelMap = Uniform "modelMat"
+    viewMat = Uniform "viewMat"
+    projMat = Uniform "projMat"
+    lightDir = Uniform "lightDir"
+    diffuseTex = Texture2DSlot "diffuseTexture"

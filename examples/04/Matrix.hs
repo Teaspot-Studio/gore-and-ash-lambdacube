@@ -38,8 +38,8 @@ modelMatrixWall' = scale (V3 1 7 7) !*! translate (V3 (-3) 0 0)
 
 -- | Camera matrix, maps from world coords to camera coords
 cameraMatrix :: Float -> LC.M44F 
-cameraMatrix _ = convLC $ lookAt eye (V3 0 0 0) (V3 0 1 0)
-  where eye = V3 5 2 5 -- rotate (axisAngle (V3 0 1 0) t) (V3 5 2 5)
+cameraMatrix t = convLC $ lookAt eye (V3 0 0 0) (V3 0 1 0)
+  where eye = rotate (axisAngle (V3 0 1 0) t) (V3 15 2 15)
 
 -- | Projection matrix, maps from camera coords to device normalized coords
 projMatrix :: Float -> LC.M44F 
