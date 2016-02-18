@@ -17,7 +17,6 @@ packages:
 - location:
     git: git@github.com:Teaspot-Studio/lambdacube-compiler.git
     commit: 2c53caeba24d9f37acb05f3a0b30361ffd25dffa
-- '../gore-and-ash-glfw'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
@@ -25,6 +24,7 @@ extra-deps:
 - async-2.0.2
 - base-orphans-0.5.1
 - gore-and-ash-1.1.0.1
+- gore-and-ash-glfw-1.1.0.0
 - indentation-0.2.1.1
 - indentation-0.2.1.1
 - pretty-compact-1.0
