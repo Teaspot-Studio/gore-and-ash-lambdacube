@@ -15,12 +15,6 @@ unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 vec3 :: Float -> Vec 3 Float 
 vec3 a = V3 a a a 
 
-shadowMapSize :: Vec 2 Int 
-shadowMapSize = V2 640 640
-
-windowSize :: Vec 2 Int 
-windowSize = V2 640 640 
-
 -- | Transforms [-1 .. 1] range to [0 .. 1]
 biasMatrix :: Mat 4 4 Float 
 biasMatrix = M44F 
@@ -122,3 +116,7 @@ main = renderFrame $
     projMat = Uniform "projMat"
     lightDir = Uniform "lightDir"
     diffuseTex = Texture2DSlot "diffuseTexture"
+    windowWidth = Uniform "windowWidth" :: Int
+    windowHeight = Uniform "windowHeight" :: Int
+    windowSize = V2 640 640
+    shadowMapSize = V2 640 640

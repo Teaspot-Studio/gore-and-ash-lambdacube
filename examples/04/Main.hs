@@ -6,6 +6,7 @@ import GHC.Generics
 import Control.Monad (join)
 import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class
+import Data.Int
 import Data.Maybe (fromMaybe)
 import Data.Proxy
 
@@ -53,6 +54,8 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
             "depthMVP"       @: M44F
             "diffuseTexture" @: FTexture2D
             "lightDir"       @: V3F
+            "windowWidth"    @: Int
+            "windowHeight"   @: Int
 
         return ()
       gameLoop gs'
@@ -109,9 +112,9 @@ renderWire :: GLStorage -> GPUMesh -> AppWire a (Maybe Game)
 renderWire storage gpuMesh = (<|> pure Nothing) $ proc _ -> do
   w <- nothingInhibit . liftGameMonad getCurrentWindowM -< ()
   closed <- isWindowClosed -< ()
-  aspect <- updateWinSize -< w
+  (aspect, width, height) <- updateWinSize -< w
   t <- timeF -< ()
-  globalUniforms -< (aspect, t)
+  globalUniforms -< (aspect, t, width, height)
   cube storage gpuMesh -< ()
   wall storage gpuMesh -< ()
   glfwFinishFrame -< w
@@ -122,19 +125,21 @@ renderWire storage gpuMesh = (<|> pure Nothing) $ proc _ -> do
   isWindowClosed = hold . mapE (const True) . windowClosing <|> pure False
 
   -- | Updates LambdaCube window size
-  updateWinSize :: AppWire GLFW.Window Float
+  updateWinSize :: AppWire GLFW.Window (Float, Int32, Int32)
   updateWinSize = liftGameMonad1 $ \win -> do 
     (w, h) <- liftIO $ GLFW.getWindowSize win
     lambdacubeUpdateSize (fromIntegral w) (fromIntegral h)
-    return $ fromIntegral w / fromIntegral h
+    return (fromIntegral w / fromIntegral h, fromIntegral w, fromIntegral h)
 
   -- | Updates storage uniforms
-  globalUniforms :: AppWire (Float, Float) ()
-  globalUniforms = liftGameMonad1 $ \(aspect, t) -> liftIO $ 
+  globalUniforms :: AppWire (Float, Float, Int32, Int32) ()
+  globalUniforms = liftGameMonad1 $ \(aspect, t, w, h) -> liftIO $ 
     LambdaCubeGL.updateUniforms storage $ do
       "viewMat" @= return (cameraMatrix t)
       "projMat" @= return (projMatrix aspect)
       "lightDir" @= return lightDirection
+      "windowWidth" @= return w
+      "windowHeight" @= return h
 
   -- | Swaps frame 
   glfwFinishFrame :: AppWire GLFW.Window ()
