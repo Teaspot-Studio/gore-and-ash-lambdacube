@@ -18,7 +18,6 @@ import Game.GoreAndAsh.LambdaCube
 import Game.GoreAndAsh.GLFW 
 
 import Core 
-import FPS 
 import Matrix
 
 import qualified Graphics.UI.GLFW as GLFW 
@@ -28,7 +27,6 @@ import qualified Data.Vector as V
 import Codec.Picture as Juicy
 import LambdaCube.GL as LambdaCubeGL -- renderer
 import LambdaCube.GL.Mesh as LambdaCubeGL
-import LambdaCube.Linear 
 
 mainPipeline :: PipelineId 
 mainPipeline = "mainPipeline"
