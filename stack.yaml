@@ -8,15 +8,15 @@ packages:
 - '.'
 - location:
     git: git@github.com:lambdacube3d/lambdacube-gl.git
-    commit: 200517cace521fe9dd2195a497e14030b0303df5
+    commit: 33e873f2b5d6b9c6b31b8679df1625eb88f8a39d
 - location:
     git: git@github.com:lambdacube3d/lambdacube-ir.git
-    commit: aa375a66800e577d928c92d7cd405a43ffdec728
+    commit: 54cc12e4d6f10bc33811713286a1931bf96f64f3
   subdirs:
   - lambdacube-ir.haskell
 - location:
-    git: git@github.com:Teaspot-Studio/lambdacube-compiler.git
-    commit: 2c53caeba24d9f37acb05f3a0b30361ffd25dffa
+    git: git@github.com:lambdacube3d/lambdacube-compiler.git
+    commit: 49b1a36e8bf97a4edd56d7890273566eaa895075
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:

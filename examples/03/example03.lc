@@ -11,8 +11,8 @@ homonize v = V4 v%x v%y v%z 1
 unhomonize :: Vec 4 Float -> Vec 3 Float 
 unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 
-vec3 :: Float -> Vec 3 Float 
-vec3 a = V3 a a a 
+--vec3 :: Float -> Vec 3 Float 
+--vec3 a = V3 a a a 
 
 makeFrame (modelMat :: Mat 4 4 Float)
           (viewMat :: Mat 4 4 Float)
@@ -43,12 +43,12 @@ makeFrame (modelMat :: Mat 4 4 Float)
             lightDirCamspace = lightPosCamspace + eyeDirCamspace
             normalCamspace = unhomonize $ viewmatInvT *. homonize n
 
-    enlight :: (Position, Normal, UV, Direction, Direction) -> Color
-    enlight (pworld, normalCamspace, uv, eyeDirCamspace, lightDir) = homonize colorLinear
+    enlight :: (Position, Normal, UV, Direction, Direction) -> ((Color))
+    enlight (pworld, normalCamspace, uv, eyeDirCamspace, lightDir) = ((homonize colorLinear))
       where 
         diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv
         ambientColor = diffuseColor%xyz *! 0.1
-        specColor = V3 1 1 1
+        specColor = V3 1 1 1 :: Vec 3 Float
         shininess = 64.0
 
         lightPower = 40

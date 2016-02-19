@@ -6,8 +6,8 @@ makeFrame (projmat :: Mat 4 4 Float)
   `overlay`
       prims
     & mapPrimitives (\(p, uv) -> (projmat *. V4 p%x p%y p%z 1, uv))
-    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) Smooth
-    & mapFragments (\uv -> texture2D (Sampler PointFilter MirroredRepeat texture) uv)
+    & rasterizePrimitives (TriangleCtx CullNone PolygonFill NoOffset LastVertex) ((Smooth))
+    & mapFragments (\((uv)) -> ((texture2D (Sampler PointFilter MirroredRepeat texture) uv)) )
     & accumulateWith (DepthOp Less True, ColorOp NoBlending (V4 True True True True))
 
 main = renderFrame $
