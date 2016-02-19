@@ -101,17 +101,17 @@ makeFrame (modelMat :: Mat 4 4 Float)
         colorLinear = ambientColor + diffuseColor%xyz *! (lambertian * visibility) + specColor *! (specular * visibility)
 
 main :: Output
-main = renderFrame $
+main = renderFrame $ 
   let shadowMap = Texture2D shadowMapSize . PrjImageColor $ makeShadowMap depthMVP objects
       diffuseMap = Texture2D windowSize . PrjImageColor $ diffuseBuffer modelMap viewMat projMat diffuseTex objects
   in makeFrame modelMap viewMat projMat diffuseMap lightDir shadowMap depthMVP objects
   where
-    depthMVP = Uniform "depthMVP" :: Mat 4 4 Float
+    depthMVP = Uniform "depthMVP"
     objects = fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv")
-    modelMap = Uniform "modelMat" :: Mat 4 4 Float
-    viewMat = Uniform "viewMat" :: Mat 4 4 Float
-    projMat = Uniform "projMat" :: Mat 4 4 Float
-    lightDir = Uniform "lightDir" :: Vec 3 Float
+    modelMap = Uniform "modelMat"
+    viewMat = Uniform "viewMat"
+    projMat = Uniform "projMat"
+    lightDir = Uniform "lightDir"
     diffuseTex = Texture2DSlot "diffuseTexture"
     windowWidth = Uniform "windowWidth" :: Int
     windowHeight = Uniform "windowHeight" :: Int

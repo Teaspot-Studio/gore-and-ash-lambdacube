@@ -16,7 +16,7 @@ packages:
   - lambdacube-ir.haskell
 - location:
     git: git@github.com:lambdacube3d/lambdacube-compiler.git
-    commit: 49b1a36e8bf97a4edd56d7890273566eaa895075
+    commit: 596ce93cd64d80e13649d179720365b8571235db
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
