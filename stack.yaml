@@ -1,22 +1,22 @@
 # For more information, see: http://docs.haskellstack.org/en/stable/yaml_configuration.html
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-5.3
+resolver: lts-5.5
 
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
 - location:
     git: git@github.com:lambdacube3d/lambdacube-gl.git
-    commit: 33e873f2b5d6b9c6b31b8679df1625eb88f8a39d
+    commit: 3f2411c47e6e4677051ea189fc8e2affea0776a6
 - location:
     git: git@github.com:lambdacube3d/lambdacube-ir.git
-    commit: 54cc12e4d6f10bc33811713286a1931bf96f64f3
+    commit: 3b50722f433ec5ecc515ea1441fd633d85118cb9
   subdirs:
   - lambdacube-ir.haskell
 - location:
     git: git@github.com:lambdacube3d/lambdacube-compiler.git
-    commit: 596ce93cd64d80e13649d179720365b8571235db
+    commit: f4fb7a1d8f81e97598ccabb503a28eb30754edcd
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
@@ -32,6 +32,7 @@ extra-deps:
 - QuickCheck-2.8.2
 - text-1.2.2.0
 - vect-0.4.7
+
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -72,4 +72,4 @@ main = renderFrame $
              (Uniform "projMat")
              (Texture2DSlot "diffuseTexture")
              (Uniform "lightPos")
-             (fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv"))
+             (fetch "objects" (Attribute "position", Attribute "normal", Attribute "uv"))

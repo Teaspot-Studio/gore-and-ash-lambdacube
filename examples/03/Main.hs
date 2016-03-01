@@ -42,7 +42,7 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
       (_, gs') <- stepGame gs $ do
         win <- liftIO $ initWindow "Gore&Ash LambdaCube Example 03" 640 640
         setCurrentWindowM $ Just win 
-        lambdacubeAddPipeline [".", "../shared"] "example03" mainPipeline $ do
+        lambdacubeAddPipeline [".", "../shared"] "example03.lc" mainPipeline $ do
           defObjectArray "objects" Triangles $ do
             "position"  @: Attribute_V3F
             "normal"    @: Attribute_V3F

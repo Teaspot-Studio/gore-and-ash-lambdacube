@@ -23,3 +23,11 @@ And derive `MonadLambdaCube` for your resulting `AppMonad`:
 newtype AppMonad a = AppMonad (AppStack a)
   deriving (Functor, Applicative, Monad, MonadFix, MonadIO, MonadThrow, MonadCatch, MonadLambdaCube)
 ```
+
+Building examples
+=================
+
+The package has several examples, to build them pass `examples` flag:
+```
+stack install --flag gore-and-ash-lambdacube:examples
+```

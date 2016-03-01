@@ -107,7 +107,7 @@ main = renderFrame $
   in makeFrame modelMap viewMat projMat diffuseMap lightDir shadowMap depthMVP objects
   where
     depthMVP = Uniform "depthMVP"
-    objects = fetch_ "objects" (Attribute "position", Attribute "normal", Attribute "uv")
+    objects = fetch "objects" (Attribute "position", Attribute "normal", Attribute "uv")
     modelMap = Uniform "modelMat"
     viewMat = Uniform "viewMat"
     projMat = Uniform "projMat"

@@ -13,4 +13,4 @@ makeFrame (projmat :: Mat 4 4 Float)
 main = renderFrame $
    makeFrame (Uniform "projmat")
              (Texture2DSlot "diffuseTexture")
-             (fetch_ "objects" (Attribute "position", Attribute "uv"))
+             (fetch "objects" (Attribute "position", Attribute "uv"))

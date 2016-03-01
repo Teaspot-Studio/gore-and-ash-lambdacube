@@ -11,18 +11,19 @@ id x = x
 
 ---------------------------------------
 
-class AttributeTuple a
-instance AttributeTuple a -- TODO
-class ValidOutput a
-instance ValidOutput a -- TODO
-
 data VecS (a :: Type) :: Nat -> Type where
   V2 :: a -> a -> VecS a 2
   V3 :: a -> a -> a -> VecS a 3
   V4 :: a -> a -> a -> a -> VecS a 4
 
+mapVec :: (a -> b) -> VecS a n -> VecS b n
+mapVec f (V2 x y) = V2 (f x) (f y)
+mapVec f (V3 x y z) = V3 (f x) (f y) (f z)
+mapVec f (V4 x y z w) = V4 (f x) (f y) (f z) (f w)
+
 type family Vec (n :: Nat) t  where Vec n t = VecS t n
 
+-- type family VecScalar (n :: Nat) a = r | r -> n, r -> a where
 type family VecScalar (n :: Nat) a where
     VecScalar 1 a = a
     VecScalar ('Succ ('Succ n)) a = Vec ('Succ ('Succ n)) a
@@ -46,53 +47,6 @@ type family MatVecScalarElem a where
     MatVecScalarElem (VecS a n) = a
     MatVecScalarElem (Mat i j a) = a
 
---------------------------------------- swizzling
-
-mapVec :: (a -> b) -> VecS a n -> VecS b n
-mapVec f (V2 x y) = V2 (f x) (f y)
-mapVec f (V3 x y z) = V3 (f x) (f y) (f z)
-mapVec f (V4 x y z w) = V4 (f x) (f y) (f z) (f w)
-
-data Swizz = Sx | Sy | Sz | Sw
-
-data Swizz' :: Nat -> Type where
-    Sx' :: forall n . Swizz' (Succ n)
-    Sy' :: forall n . Swizz' (Succ (Succ n))
-    Sz' :: forall n . Swizz' (Succ (Succ (Succ n)))
-    Sw' :: forall n . Swizz' (Succ (Succ (Succ (Succ n))))
-
-swizzscalar' :: forall n -> Vec n a -> Swizz' n -> a
-{-
-swizzscalar' 2 = \x -> case x of
-    V2 x y -> \s -> case s of
-        Sx' -> x
-        Sy' -> y
-swizzscalar' 3 = \x -> case x of
-    V3 x y z -> \s -> case s of
-        Sx' -> x
--}
--- todo: make it more type safe
-swizzscalar :: forall n . Vec n a -> Swizz -> a
-swizzscalar (V2 x y) Sx = x
-swizzscalar (V2 x y) Sy = y
-swizzscalar (V3 x y z) Sx = x
-swizzscalar (V3 x y z) Sy = y
-swizzscalar (V3 x y z) Sz = z
-swizzscalar (V4 x y z w) Sx = x
-swizzscalar (V4 x y z w) Sy = y
-swizzscalar (V4 x y z w) Sz = z
-swizzscalar (V4 x y z w) Sw = w
-
--- used to prevent unfolding of swizzvector on variables (behind GPU lambda)
-definedVec :: forall a m . Vec m a -> Bool
-definedVec (V2 _ _) = True
-definedVec (V3 _ _ _) = True
-definedVec (V4 _ _ _ _) = True
-
-swizzvector :: forall n . forall m . Vec n a -> Vec m Swizz -> Vec m a
-swizzvector v w | definedVec v = mapVec (swizzscalar v) w
-
-
 --------------------------------------- type classes
 
 class Signed a
@@ -101,39 +55,39 @@ instance Signed         Int
 instance Signed         Float
 
 class Component a where
-  zeroComp :: a
-  oneComp :: a
+  zero :: a
+  one :: a
 
 instance Component Int where
-  zeroComp = 0 :: Int
-  oneComp = 1 :: Int
+  zero = 0 :: Int
+  one = 1 :: Int
 instance Component Word where
-  zeroComp = 0 :: Word
-  oneComp = 1 :: Word
+  zero = 0 :: Word
+  one = 1 :: Word
 instance Component Float where
-  zeroComp = 0.0
-  oneComp = 1.0
+  zero = 0.0
+  one = 1.0
 instance Component (VecS Float 2) where
-  zeroComp = V2 0.0 0.0
-  oneComp = V2 1.0 1.0
+  zero = V2 0.0 0.0
+  one = V2 1.0 1.0
 instance Component (VecS Float 3) where
-  zeroComp = V3 0.0 0.0 0.0
-  oneComp = V3 1.0 1.0 1.0
+  zero = V3 0.0 0.0 0.0
+  one = V3 1.0 1.0 1.0
 instance Component (VecS Float 4) where
-  zeroComp = V4 0.0 0.0 0.0 0.0
-  oneComp = V4 1.0 1.0 1.0 1.0
+  zero = V4 0.0 0.0 0.0 0.0
+  one = V4 1.0 1.0 1.0 1.0
 instance Component Bool where
-  zeroComp = False
-  oneComp = True
+  zero = False
+  one = True
 instance Component (VecS Bool 2) where
-  zeroComp = V2 False False
-  oneComp = V2 True True
+  zero = V2 False False
+  one = V2 True True
 instance Component (VecS Bool 3) where
-  zeroComp = V3 False False False
-  oneComp = V3 True True True
+  zero = V3 False False False
+  one = V3 True True True
 instance Component (VecS Bool 4) where
-  zeroComp = V4 False False False False
-  oneComp = V4 True True True True
+  zero = V4 False False False False
+  one = V4 True True True True
 
 class Integral a
 
@@ -156,284 +110,6 @@ instance Floating       (Mat 4 2 Float)
 instance Floating       (Mat 4 3 Float)
 instance Floating       (Mat 4 4 Float)
 
-data BlendingFactor
-    = Zero' --- FIXME: modified
-    | One
-    | SrcColor
-    | OneMinusSrcColor
-    | DstColor
-    | OneMinusDstColor
-    | SrcAlpha
-    | OneMinusSrcAlpha
-    | DstAlpha
-    | OneMinusDstAlpha
-    | ConstantColor
-    | OneMinusConstantColor
-    | ConstantAlpha
-    | OneMinusConstantAlpha
-    | SrcAlphaSaturate
-
-data BlendEquation
-    = FuncAdd
-    | FuncSubtract
-    | FuncReverseSubtract
-    | Min
-    | Max
-
-data LogicOperation
-    = Clear
-    | And
-    | AndReverse
-    | Copy
-    | AndInverted
-    | Noop
-    | Xor
-    | Or
-    | Nor
-    | Equiv
-    | Invert
-    | OrReverse
-    | CopyInverted
-    | OrInverted
-    | Nand
-    | Set
-
-data StencilOperation
-    = OpZero
-    | OpKeep
-    | OpReplace
-    | OpIncr
-    | OpIncrWrap
-    | OpDecr
-    | OpDecrWrap
-    | OpInvert
-
-data ComparisonFunction
-    = Never
-    | Less
-    | Equal
-    | Lequal
-    | Greater
-    | Notequal
-    | Gequal
-    | Always
-
-data ProvokingVertex
-    = LastVertex
-    | FirstVertex
-
-data CullMode
-    = CullFront
-    | CullBack
-    | CullNone
-
-data PointSize a
-    = PointSize Float
-    | ProgramPointSize (a -> Float)
-
-data PolygonMode a
-    = PolygonFill
-    | PolygonPoint (PointSize a)
-    | PolygonLine Float
-
-data PolygonOffset
-    = NoOffset
-    | Offset Float Float
-
-data PointSpriteCoordOrigin
-    = LowerLeft
-    | UpperLeft
-
-data ImageSemantics = Depth Type | Stencil Type | Color Type
-
-data PrimitiveType
-    = Triangle
-    | Line
-    | Point
-    | TriangleAdjacency
-    | LineAdjacency
-
--- builtin
-primTexture :: () -> Vec 2 Float -> Vec 4 Float
-
--- builtins
-Uniform   :: String -> t
-Attribute :: String -> t
-
-data RasterContext a :: PrimitiveType -> Type where
-  TriangleCtx         :: CullMode -> PolygonMode a -> PolygonOffset -> ProvokingVertex -> RasterContext a Triangle
-  PointCtx            :: PointSize a -> Float -> PointSpriteCoordOrigin                -> RasterContext a Point
-  LineCtx             :: Float -> ProvokingVertex                                      -> RasterContext a Line
-
-map _ []     = []
-map f (x:xs) = f x : map f xs
-
-type family ListElem a where ListElem [a] = a
-
-type family HListElem a :: [Type] where HListElem (HList l) = l
-
-data Blending :: Type -> Type where
-  NoBlending          ::                                   Blending t
-  BlendLogicOp        :: (Integral t) => LogicOperation -> Blending t
-  Blend               :: (BlendEquation, BlendEquation)
-                         -> ((BlendingFactor, BlendingFactor), (BlendingFactor, BlendingFactor))
-                         -> Vec 4 Float ->                 Blending Float
-
-data StencilTests
-data StencilOps
-data Int32
-
-data FragmentOperation :: ImageSemantics -> Type where
-  ColorOp             :: Num c => Blending c -> VecScalar d Bool   -> FragmentOperation (Color (VecScalar d c))
-  DepthOp             :: ComparisonFunction -> Bool                -> FragmentOperation (Depth Float)
-  StencilOp           :: StencilTests -> StencilOps -> StencilOps  -> FragmentOperation (Stencil Int32)
-
-[]   ++ ys = ys
-x:xs ++ ys = x : xs ++ ys
-
-foldr f e [] = e
-foldr f e (x: xs) = f x (foldr f e xs)
-
-concat = foldr (++) []
-
-concatMap :: (a -> [b]) -> [a] -> [b]
-concatMap f x = concat (map f x)
-
-data Primitive a :: PrimitiveType -> Type where
-    PrimPoint    :: a           -> Primitive a Point
-    PrimLine     :: a -> a      -> Primitive a Line
-    PrimTriangle :: a -> a -> a -> Primitive a Triangle
-
-type PrimitiveStream a t = [Primitive t a]
-
-mapPrimitive :: (a -> b) -> Primitive a p -> Primitive b p
-{- todo
-mapPrimitive f (PrimPoint a) = PrimPoint (f a)
-mapPrimitive f (PrimLine a b) = PrimLine (f a) (f b)
-mapPrimitive f (PrimTriangle a b c) = PrimTriangle (f a) (f b) (f c)
--}
-
-fetch_               :: forall a t . (AttributeTuple t) => String -> t -> PrimitiveStream a t
-fetchArrays_         :: forall a t t' . (AttributeTuple t, t ~ HList (map ListElem (HListElem t'))) => t' -> PrimitiveStream a t
-
-mapPrimitives :: (a -> b) -> PrimitiveStream p a -> PrimitiveStream p b
-mapPrimitives f = map (mapPrimitive f)
-
-fetch s a t = fetch_ @a s t
-fetchArrays a t = fetchArrays_ @a t
-
--------------------
-
-data Maybe a
-    = Nothing
-    | Just a
---    deriving (Eq, Ord, Show)
-
-data Vector (n :: Nat) t
-
-type Fragment n t = Vector n (Maybe (SimpleFragment t))
-
-data SimpleFragment t = SimpleFragment
-    { sFragmentCoords   :: Vec 3 Float
-    , sFragmentValue    :: t
-    }
-
-type FragmentStream n t = [Fragment n t]
-
-customizeDepth :: (a -> Float) -> Fragment n a -> Fragment n a
-
-customizeDepths :: (a -> Float) -> FragmentStream n a -> FragmentStream n a
-customizeDepths f = map (customizeDepth f)
-
-filterFragment :: (a -> Bool) -> Fragment n a -> Fragment n a
-
-filterFragments :: (a -> Bool) -> FragmentStream n a -> FragmentStream n a
-filterFragments p = map (filterFragment p)
-
-mapFragment :: (a -> b) -> Fragment n a -> Fragment n b
-
-mapFragments :: (a -> b) -> FragmentStream n a -> FragmentStream n b
-mapFragments f = map (mapFragment f)
-
-
-data Interpolated t where
-  Smooth, NoPerspective
-                      :: (Floating t) => Interpolated t
-  Flat                ::                 Interpolated t
-
-rasterizePrimitive
-    :: ( map Interpolated b ~ interpolation
-       , a ~ 'Cons (Vec 4 Float) b )
-    => HList interpolation                -- tuple of Smooth & Flat
-    -> RasterContext (HList a) x
-    -> Primitive (HList a) x
-    -> FragmentStream 1 (HList b)
-
-rasterizePrimitives ctx is s = concat (map (rasterizePrimitive is ctx) s)
-
-data Image (n :: Nat) (t :: ImageSemantics) -- = Vector n [[t]]
-
-ColorImage          :: forall a d t color . (Num t, color ~ VecScalar d t)
-                    => color  -> Image a (Color color)
-DepthImage          :: forall a . Float  -> Image a (Depth Float)
-StencilImage        :: forall a . Int    -> Image a (Stencil Int)
-
-type family ImageLC a :: Nat where ImageLC (Image n t) = n
-
-allSame :: [a] -> Type
-allSame [] = 'Unit
-allSame [x] = 'Unit
-allSame (x: y: xs) = 'T2 (x ~ y) (allSame (y:xs))
-
-sameLayerCounts a = allSame (map 'ImageLC a)
-
-{-
-defaultFragOp :: forall (a :: ImageSemantics) -> FragmentOperation a
-defaultFragOp (Color '(VecS Float 4)) = ColorOp NoBlending (V4 True True True True)
-defaultFragOp (Depth 'Float) = DepthOp Less True
-
-class DefaultFragOps a where defaultFragOps :: a
-instance (DefaultFragOp a, DefaultFragOp b) => DefaultFragOps (FragmentOperation a, FragmentOperation b) where
-    defaultFragOps = -- (undefined @(), undefined) 
-            (defaultFragOp @a @_, defaultFragOp @b @_)
--}
-data FrameBuffer (n :: Nat) (t :: [ImageSemantics])
-
-remSemantics :: ImageSemantics -> Type
-remSemantics (Color a) = a
-remSemantics (Depth a) = a
-remSemantics (Stencil a) = a
-
-remSemantics' :: [ImageSemantics] -> [Type]
-remSemantics' (Depth _: x) = map remSemantics x 
-remSemantics' x = map remSemantics x 
-
-type family FragmentOperationSem a :: ImageSemantics where FragmentOperationSem (FragmentOperation x) = x
-
-Accumulate :: forall (n :: Nat) (c :: [Type]) . (b ~ map FragmentOperationSem c) => HList c -> FragmentStream n (HList (remSemantics' b)) -> FrameBuffer n b -> FrameBuffer n b
-
-type family ImageSem a  :: ImageSemantics where ImageSem (Image n t) = t
-
-tfFrameBuffer t = map 'ImageSem t
-
-class ValidFrameBuffer (a :: [ImageSemantics])
-instance ValidFrameBuffer a -- TODO
-
-head (x: _) = x
-
-FrameBuffer  :: forall (a :: [Type]) . (sameLayerCounts a) => HList a -> FrameBuffer (ImageLC (head a)) (tfFrameBuffer a)
-
-accumulate ctx fshader fstr fb = Accumulate ctx (mapFragments fshader fstr) fb
-
--- todo: remove
-accumulationContext x = x
-
--- texture support
-PrjImage            :: FrameBuffer 1 '[a] -> Image 1 a
-PrjImageColor       :: FrameBuffer 1 '[Depth 'Float, Color '(Vec 4 Float)] -> Image 1 (Color (Vec 4 Float))
-
-data Output where
-  ScreenOut           :: FrameBuffer a b -> Output
 
 -------------------------------------------------------------------
 -- * Builtin Primitive Functions *
@@ -520,6 +196,352 @@ PrimV3ToTup                   :: Component a => PrimFun stage (V3 a   -> (a,a,a)
 PrimV4ToTup                   :: Component a => PrimFun stage (V4 a -> (a,a,a,a))
 -}
 
+-------------------------------------------------------
+
+head (x: _) = x
+
+[]   ++ ys = ys
+x:xs ++ ys = x : xs ++ ys
+
+foldr f e [] = e
+foldr f e (x: xs) = f x (foldr f e xs)
+
+concat = foldr (++) []
+
+map _ []     = []
+map f (x:xs) = f x : map f xs
+
+concatMap :: (a -> [b]) -> [a] -> [b]
+concatMap f x = concat (map f x)
+
+len [] = 0
+len (x:xs) = 1 `primAddInt` len xs
+
+-------------------
+
+data Maybe a
+    = Nothing
+    | Just a
+--    deriving (Eq, Ord, Show)
+
+data Vector (n :: Nat) t
+
+-------------------------------------------------------
+
+data PrimitiveType
+    = Triangle
+    | Line
+    | Point
+    | TriangleAdjacency
+    | LineAdjacency
+
+data Primitive a :: PrimitiveType -> Type where
+    PrimPoint    :: a           -> Primitive a Point
+    PrimLine     :: a -> a      -> Primitive a Line
+    PrimTriangle :: a -> a -> a -> Primitive a Triangle
+
+mapPrimitive :: (a -> b) -> Primitive a p -> Primitive b p
+{- todo
+mapPrimitive f (PrimPoint a) = PrimPoint (f a)
+mapPrimitive f (PrimLine a b) = PrimLine (f a) (f b)
+mapPrimitive f (PrimTriangle a b c) = PrimTriangle (f a) (f b) (f c)
+-}
+
+type PrimitiveStream a t = [Primitive t a]
+
+mapPrimitives :: (a -> b) -> PrimitiveStream p a -> PrimitiveStream p b
+mapPrimitives f = map (mapPrimitive f)
+
+type family ListElem a where ListElem [a] = a
+
+--class AttributeTuple a
+--instance AttributeTuple a -- TODO
+
+fetchArrays :: forall a t t' . ({-AttributeTuple t, -} t ~ map ListElem t') => HList t' -> PrimitiveStream a (HList t)
+
+fetch       :: forall a t . {-(AttributeTuple t) => -} String -> HList t -> PrimitiveStream a (HList t)
+
+Attribute :: String -> t
+
+fetchStream :: forall p (t :: [Type]) . String -> forall (as :: [String]) -> len as ~ len t => PrimitiveStream p (HList t)
+
+------------------------------------------------------
+
+type Fragment n t = Vector n (Maybe (SimpleFragment t))
+
+data SimpleFragment t = SimpleFragment
+    { sFragmentCoords   :: Vec 3 Float
+    , sFragmentValue    :: t
+    }
+
+type FragmentStream n t = [Fragment n t]
+
+customizeDepth :: (a -> Float) -> Fragment n a -> Fragment n a
+
+customizeDepths :: (a -> Float) -> FragmentStream n a -> FragmentStream n a
+customizeDepths f = map (customizeDepth f)
+
+filterFragment :: (a -> Bool) -> Fragment n a -> Fragment n a
+
+filterFragments :: (a -> Bool) -> FragmentStream n a -> FragmentStream n a
+filterFragments p = map (filterFragment p)
+
+mapFragment :: (a -> b) -> Fragment n a -> Fragment n b
+
+mapFragments :: (a -> b) -> FragmentStream n a -> FragmentStream n b
+mapFragments f = map (mapFragment f)
+
+-------------------------------------------------------------------------
+
+data ImageKind
+    = Color Type
+    | Depth
+    | Stencil
+
+imageType :: ImageKind -> Type
+imageType (Color a) = a
+imageType Depth = 'Float
+imageType Stencil = 'Int
+
+data Image (n :: Nat) (t :: ImageKind) -- = Vector n [[imageType t]]
+
+ColorImage          :: forall a d t color . (Num t, color ~ VecScalar d t)
+                    => color  -> Image a (Color color)
+DepthImage          :: forall a . Float  -> Image a Depth
+StencilImage        :: forall a . Int    -> Image a Stencil
+
+emptyDepthImage = DepthImage @1
+emptyColorImage = ColorImage @1
+
+-------------------------------------------------------------------------
+
+
+--------------------------------------- swizzling
+
+data Swizz = Sx | Sy | Sz | Sw
+{-
+data Swizz' :: Nat -> Type where
+    Sx' :: forall n . Swizz' (Succ n)
+    Sy' :: forall n . Swizz' (Succ (Succ n))
+    Sz' :: forall n . Swizz' (Succ (Succ (Succ n)))
+    Sw' :: forall n . Swizz' (Succ (Succ (Succ (Succ n))))
+
+swizzscalar' :: forall n -> Vec n a -> Swizz' n -> a
+swizzscalar' 2 = \x -> case x of
+    V2 x y -> \s -> case s of
+        Sx' -> x
+        Sy' -> y
+swizzscalar' 3 = \x -> case x of
+    V3 x y z -> \s -> case s of
+        Sx' -> x
+-}
+-- todo: make it more type safe
+swizzscalar :: forall n . Vec n a -> Swizz -> a
+swizzscalar (V2 x y) Sx = x
+swizzscalar (V2 x y) Sy = y
+swizzscalar (V3 x y z) Sx = x
+swizzscalar (V3 x y z) Sy = y
+swizzscalar (V3 x y z) Sz = z
+swizzscalar (V4 x y z w) Sx = x
+swizzscalar (V4 x y z w) Sy = y
+swizzscalar (V4 x y z w) Sz = z
+swizzscalar (V4 x y z w) Sw = w
+
+-- used to prevent unfolding of swizzvector on variables (behind GPU lambda)
+definedVec :: forall a m . Vec m a -> Bool
+definedVec (V2 _ _) = True
+definedVec (V3 _ _ _) = True
+definedVec (V4 _ _ _ _) = True
+
+swizzvector :: forall n . forall m . Vec n a -> Vec m Swizz -> Vec m a
+swizzvector v w | definedVec v = mapVec (swizzscalar v) w
+
+-----------------------------------------------------------------------------
+
+data BlendingFactor
+    = ZeroBF
+    | OneBF
+    | SrcColor
+    | OneMinusSrcColor
+    | DstColor
+    | OneMinusDstColor
+    | SrcAlpha
+    | OneMinusSrcAlpha
+    | DstAlpha
+    | OneMinusDstAlpha
+    | ConstantColor
+    | OneMinusConstantColor
+    | ConstantAlpha
+    | OneMinusConstantAlpha
+    | SrcAlphaSaturate
+
+data BlendEquation
+    = FuncAdd
+    | FuncSubtract
+    | FuncReverseSubtract
+    | Min
+    | Max
+
+data LogicOperation
+    = Clear
+    | And
+    | AndReverse
+    | Copy
+    | AndInverted
+    | Noop
+    | Xor
+    | Or
+    | Nor
+    | Equiv
+    | Invert
+    | OrReverse
+    | CopyInverted
+    | OrInverted
+    | Nand
+    | Set
+
+data StencilOperation
+    = OpZero
+    | OpKeep
+    | OpReplace
+    | OpIncr
+    | OpIncrWrap
+    | OpDecr
+    | OpDecrWrap
+    | OpInvert
+
+data ComparisonFunction
+    = Never
+    | Less
+    | Equal
+    | Lequal
+    | Greater
+    | Notequal
+    | Gequal
+    | Always
+
+data ProvokingVertex
+    = LastVertex
+    | FirstVertex
+
+data CullMode
+    = CullFront
+    | CullBack
+    | CullNone
+
+data PointSize a
+    = PointSize Float
+    | ProgramPointSize (a -> Float)
+
+data PolygonMode a
+    = PolygonFill
+    | PolygonPoint (PointSize a)
+    | PolygonLine Float
+
+data PolygonOffset
+    = NoOffset
+    | Offset Float Float
+
+data PointSpriteCoordOrigin
+    = LowerLeft
+    | UpperLeft
+
+-- builtin
+primTexture :: () -> Vec 2 Float -> Vec 4 Float
+
+-- builtins
+Uniform   :: String -> t
+
+data RasterContext a :: PrimitiveType -> Type where
+  TriangleCtx         :: CullMode -> PolygonMode a -> PolygonOffset -> ProvokingVertex -> RasterContext a Triangle
+  PointCtx            :: PointSize a -> Float -> PointSpriteCoordOrigin                -> RasterContext a Point
+  LineCtx             :: Float -> ProvokingVertex                                      -> RasterContext a Line
+
+data Blending :: Type -> Type where
+  NoBlending          ::                                   Blending t
+  BlendLogicOp        :: (Integral t) => LogicOperation -> Blending t
+  Blend               :: (BlendEquation, BlendEquation)
+                         -> ((BlendingFactor, BlendingFactor), (BlendingFactor, BlendingFactor))
+                         -> Vec 4 Float ->                 Blending Float
+
+data StencilTests
+data StencilOps
+
+data FragmentOperation :: ImageKind -> Type where
+  ColorOp             :: Num c => Blending c -> VecScalar d Bool   -> FragmentOperation (Color (VecScalar d c))
+  DepthOp             :: ComparisonFunction -> Bool                -> FragmentOperation Depth
+  StencilOp           :: StencilTests -> StencilOps -> StencilOps  -> FragmentOperation Stencil
+
+data Interpolated t where
+  Smooth, NoPerspective
+                      :: (Floating t) => Interpolated t
+  Flat                ::                 Interpolated t
+
+rasterizePrimitive
+    :: ( map Interpolated b ~ interpolation
+       , a ~ 'Cons (Vec 4 Float) b )
+    => HList interpolation                -- tuple of Smooth & Flat
+    -> RasterContext (HList a) x
+    -> Primitive (HList a) x
+    -> FragmentStream 1 (HList b)
+
+rasterizePrimitives ctx is s = concat (map (rasterizePrimitive is ctx) s)
+
+type family ImageLC a :: Nat where ImageLC (Image n t) = n
+
+allSame :: [a] -> Type
+allSame [] = 'Unit
+allSame [x] = 'Unit
+allSame (x: y: xs) = 'T2 (x ~ y) (allSame (y:xs))
+
+sameLayerCounts a = allSame (map 'ImageLC a)
+
+{-
+defaultFragOp :: forall (a :: ImageKind) -> FragmentOperation a
+defaultFragOp (Color '(VecS Float 4)) = ColorOp NoBlending (V4 True True True True)
+defaultFragOp Depth = DepthOp Less True
+
+class DefaultFragOps a where defaultFragOps :: a
+instance (DefaultFragOp a, DefaultFragOp b) => DefaultFragOps (FragmentOperation a, FragmentOperation b) where
+    defaultFragOps = -- (undefined @(), undefined) 
+            (defaultFragOp @a @_, defaultFragOp @b @_)
+-}
+data FrameBuffer (n :: Nat) (t :: [ImageKind])
+
+imageType' :: [ImageKind] -> [Type]
+imageType' (Depth: x) = map imageType x 
+imageType' x = map imageType x 
+
+type family FragmentOperationKind a :: ImageKind where FragmentOperationKind (FragmentOperation x) = x
+
+Accumulate :: forall (n :: Nat) (c :: [Type]) . (b ~ map FragmentOperationKind c) => HList c -> FragmentStream n (HList (imageType' b)) -> FrameBuffer n b -> FrameBuffer n b
+
+accumulateWith ctx x = (ctx, x)
+overlay cl (ctx, str) = Accumulate ctx str cl
+
+infixl 0 `overlay`
+
+type family GetImageKind a :: ImageKind where GetImageKind (Image n t) = t
+
+--class ValidFrameBuffer (a :: [ImageKind])
+--instance ValidFrameBuffer a -- TODO
+
+-- todo: rename to imageFrame
+FrameBuffer  :: forall (a :: [Type]) . (sameLayerCounts a) => HList a -> FrameBuffer (ImageLC (head a)) (map GetImageKind a)
+
+imageFrame = FrameBuffer
+
+accumulate ctx fshader fstr fb = Accumulate ctx (mapFragments fshader fstr) fb
+
+-- texture support
+PrjImage            :: FrameBuffer 1 '[a] -> Image 1 a
+PrjImageColor       :: FrameBuffer 1 '[ 'Depth, 'Color (Vec 4 Float)] -> Image 1 (Color (Vec 4 Float))
+
+data Output where
+  ScreenOut           :: FrameBuffer a b -> Output
+
+renderFrame = ScreenOut
+
 --------------------
 -- * Texture support
 -- FIXME: currently only Float RGBA 2D texture is supported
@@ -547,12 +569,7 @@ data Sampler = Sampler Filter EdgeMode Texture
 texture2D :: Sampler -> Vec 2 Float -> Vec 4 Float
 
 
-accumulateWith ctx x = (ctx, x)
-overlay cl (ctx, str) = Accumulate ctx str cl
-renderFrame = ScreenOut
-imageFrame = FrameBuffer
-emptyDepthImage = DepthImage @1
-emptyColorImage = ColorImage @1
+-- todo: remove
+accumulationContext x = x
 
-infixl 0 `overlay`
 
