@@ -1,25 +1,25 @@
 module Main where
 
 import Control.DeepSeq
-import GHC.Generics 
+import GHC.Generics
 
 import Control.Monad (join)
 import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class
 import Data.Maybe (fromMaybe)
-import Data.Proxy 
+import Data.Proxy
 
-import Control.Wire 
+import Control.Wire
 import Prelude hiding ((.), id)
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.LambdaCube
-import Game.GoreAndAsh.GLFW 
+import Game.GoreAndAsh.GLFW
 
-import Core 
-import FPS 
+import Core
+import FPS
 
-import qualified Graphics.UI.GLFW as GLFW 
+import qualified Graphics.UI.GLFW as GLFW
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 
@@ -27,7 +27,7 @@ import Codec.Picture as Juicy
 import LambdaCube.GL as LambdaCubeGL -- renderer
 import LambdaCube.GL.Mesh as LambdaCubeGL
 
-mainPipeline :: PipelineId 
+mainPipeline :: PipelineId
 mainPipeline = "mainPipeline"
 
 main :: IO ()
@@ -35,11 +35,11 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
   gs <- newGameState initStorage
   fps <- makeFPSBounder 180
   firstLoop fps gs `catch` errorExit
-  where 
-    firstLoop fps gs = do 
+  where
+    firstLoop fps gs = do
       (_, gs') <- stepGame gs $ do
         win <- liftIO $ initWindow "Gore&Ash LambdaCube Example 01" 640 640
-        setCurrentWindowM $ Just win 
+        setCurrentWindowM $ Just win
         lambdacubeAddPipeline [".", "../shared"] "example01.lc" mainPipeline $ do
           defObjectArray "objects" Triangles $ do
             "position"  @: Attribute_V2F
@@ -50,17 +50,17 @@ main = withModule (Proxy :: Proxy AppMonad) $ do
         return ()
       gameLoop fps gs'
 
-    errorExit e = do 
-      liftIO $ case e of 
+    errorExit e = do
+      liftIO $ case e of
         PipeLineCompileFailed _ _ msg -> putStrLn msg
         PipeLineAlreadyRegistered i -> putStrLn $ "Pipeline already registered: " ++ show i
-        PipeLineNotFound i -> putStrLn $ "Pipeline is not found: " ++ show i 
-        StorageNotFound i -> putStrLn $ "Storage is not found: " ++ show i 
+        PipeLineNotFound i -> putStrLn $ "Pipeline is not found: " ++ show i
+        StorageNotFound i -> putStrLn $ "Storage is not found: " ++ show i
         PipeLineIncompatible _ msg -> putStrLn $ "Pipeline incompatible: " ++ msg
       fail "terminate: fatal error"
 
     gameLoop fps gs = do
-      waitFPSBound fps 
+      waitFPSBound fps
       (mg, gs') <- stepGame gs (return ())
       mg `deepseq` if fromMaybe False $ gameExit <$> join mg
         then cleanupGameState gs'
@@ -85,17 +85,17 @@ data Game = Game {
   }
   deriving (Generic)
 
-instance NFData Game 
+instance NFData Game
 
 -- | Initalizes storage and then switches to rendering state
 initStorage :: AppWire a (Maybe Game)
-initStorage = mkGen $ \_ _ -> do 
+initStorage = mkGen $ \_ _ -> do
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
-  textureData <- liftIO $ do 
+  textureData <- liftIO $ do
     -- upload geometry to GPU and add to pipeline input
     _ <- LambdaCubeGL.uploadMeshToGPU triangleA >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
     _ <- LambdaCubeGL.uploadMeshToGPU triangleB >>= LambdaCubeGL.addMeshToObjectArray storage "objects" []
-    
+
     -- load image and upload texture
     Right img <- Juicy.readImage "../shared/logo.png"
     LambdaCubeGL.uploadTexture2DToGPU img
@@ -119,31 +119,25 @@ renderWire storage textureData = (<|> pure Nothing) $ proc _ -> do
 
   -- | Updates LambdaCube window size
   updateWinSize :: AppWire GLFW.Window ()
-  updateWinSize = liftGameMonad1 $ \win -> do 
+  updateWinSize = liftGameMonad1 $ \win -> do
     (w, h) <- liftIO $ GLFW.getWindowSize win
     lambdacubeUpdateSize (fromIntegral w) (fromIntegral h)
 
   -- | Updates storage uniforms
   renderStorage :: AppWire a ()
-  renderStorage = proc _ -> do 
+  renderStorage = proc _ -> do
     t <- timeF -< ()
-    fillUniforms -< t 
+    fillUniforms -< t
     where
     fillUniforms :: AppWire Float ()
-    fillUniforms = liftGameMonad1 $ \t -> liftIO $ 
+    fillUniforms = liftGameMonad1 $ \t -> liftIO $
       LambdaCubeGL.updateUniforms storage $ do
         "diffuseTexture" @= return textureData
         "time" @= return t
 
-  -- | Swaps frame 
+  -- | Swaps frame
   glfwFinishFrame :: AppWire GLFW.Window ()
   glfwFinishFrame = liftGameMonad1 $ liftIO . GLFW.swapBuffers
-
--- | Inhibits if gets Nothing
-nothingInhibit :: AppWire (Maybe a) a 
-nothingInhibit = mkPure_ $ \ma -> case ma of 
-  Nothing -> Left ()
-  Just a -> Right a
 
 -- geometry data: triangles
 triangleA :: LambdaCubeGL.Mesh

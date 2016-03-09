@@ -23,7 +23,7 @@ extra-deps:
 - aeson-0.10.0.0
 - async-2.0.2
 - base-orphans-0.5.1
-- gore-and-ash-1.1.0.1
+- gore-and-ash-1.2.1.0
 - gore-and-ash-glfw-1.1.0.0
 - indentation-0.2.1.1
 - indentation-0.2.1.1
