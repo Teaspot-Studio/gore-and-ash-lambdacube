@@ -16,7 +16,7 @@ extra-deps:
 - gore-and-ash-glfw-1.1.0.0
 - indentation-0.2.1.1
 - lambdacube-compiler-0.5.0.1
-- lambdacube-gl-0.5.0.3
+- lambdacube-gl-0.5.0.5
 - lambdacube-ir-0.3.0.0
 - pretty-compact-1.0
 - QuickCheck-2.8.2

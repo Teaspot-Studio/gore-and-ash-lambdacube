@@ -27,8 +27,8 @@ library
                     , exceptions >= 0.8.2.1
                     , gore-and-ash >= 1.2.1.0
                     , hashable >= 1.2.4.0
-                    , lambdacube-compiler >= 0.4.0.0
-                    , lambdacube-gl >= 0.4.0.2
+                    , lambdacube-compiler >= 0.5.0.1
+                    , lambdacube-gl >= 0.5.0.5
                     , mtl >= 2.2.1
                     , text >= 1.2.2.0
                     , unordered-containers >= 0.2.5.1
@@ -68,8 +68,8 @@ executable gore-and-ash-lambdacube-example01
                      , gore-and-ash-glfw >= 1.1.0.0
                      , gore-and-ash-lambdacube
                      , JuicyPixels >= 3.2.7
-                     , lambdacube-compiler >= 0.4.0.0
-                     , lambdacube-gl >= 0.4.0.2
+                     , lambdacube-compiler >= 0.5.0.1
+                     , lambdacube-gl >= 0.5.0.5
                      , mtl >= 2.2.1
                      , text >= 1.2.2.0
                      , transformers >= 0.4.2.0
@@ -111,9 +111,9 @@ executable gore-and-ash-lambdacube-example02
                      , gore-and-ash-glfw >= 1.1.0.0
                      , gore-and-ash-lambdacube
                      , JuicyPixels >= 3.2.7
-                     , lambdacube-compiler >= 0.4.0.0
-                     , lambdacube-gl >= 0.4.0.2
-                     , lambdacube-ir >= 0.2.0.0
+                     , lambdacube-compiler >= 0.5.0.1
+                     , lambdacube-gl >= 0.5.0.5
+                     , lambdacube-ir >= 0.3.0.0
                      , mtl >= 2.2.1
                      , text >= 1.2.2.0
                      , transformers >= 0.4.2.0
@@ -156,9 +156,9 @@ executable gore-and-ash-lambdacube-example03
                      , gore-and-ash-glfw >= 1.1.0.0
                      , gore-and-ash-lambdacube
                      , JuicyPixels >= 3.2.7
-                     , lambdacube-compiler >= 0.4.0.0
-                     , lambdacube-gl >= 0.4.0.2
-                     , lambdacube-ir >= 0.2.0.0
+                     , lambdacube-compiler >= 0.5.0.1
+                     , lambdacube-gl >= 0.5.0.5
+                     , lambdacube-ir >= 0.3.0.0
                      , mtl >= 2.2.1
                      , text >= 1.2.2.0
                      , transformers >= 0.4.2.0
@@ -201,9 +201,9 @@ executable gore-and-ash-lambdacube-example04
                      , gore-and-ash-glfw >= 1.1.0.0
                      , gore-and-ash-lambdacube
                      , JuicyPixels >= 3.2.7
-                     , lambdacube-compiler >= 0.4.0.0
-                     , lambdacube-gl >= 0.4.0.2
-                     , lambdacube-ir >= 0.2.0.0
+                     , lambdacube-compiler >= 0.5.0.1
+                     , lambdacube-gl >= 0.5.0.5
+                     , lambdacube-ir >= 0.3.0.0
                      , mtl >= 2.2.1
                      , text >= 1.2.2.0
                      , transformers >= 0.4.2.0
