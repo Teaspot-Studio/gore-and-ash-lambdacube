@@ -479,7 +479,7 @@ data Interpolated t where
 
 rasterizePrimitive
     :: ( map Interpolated b ~ interpolation
-       , a ~ 'Cons (Vec 4 Float) b )
+       , a ~ Vec 4 Float: b )
     => HList interpolation                -- tuple of Smooth & Flat
     -> RasterContext (HList a) x
     -> Primitive (HList a) x
@@ -489,9 +489,9 @@ rasterizePrimitives ctx is s = concat (map (rasterizePrimitive is ctx) s)
 
 type family ImageLC a :: Nat where ImageLC (Image n t) = n
 
-allSame :: [a] -> Type
-allSame [] = 'Unit
-allSame [x] = 'Unit
+allSame :: [a] -> Constraint
+allSame [] = 'CUnit
+allSame [x] = 'CUnit
 allSame (x: y: xs) = 'T2 (x ~ y) (allSame (y:xs))
 
 sameLayerCounts a = allSame (map 'ImageLC a)
@@ -503,14 +503,14 @@ defaultFragOp Depth = DepthOp Less True
 
 class DefaultFragOps a where defaultFragOps :: a
 instance (DefaultFragOp a, DefaultFragOp b) => DefaultFragOps (FragmentOperation a, FragmentOperation b) where
-    defaultFragOps = -- (undefined @(), undefined) 
+    defaultFragOps = -- (undefined @(), undefined)
             (defaultFragOp @a @_, defaultFragOp @b @_)
 -}
 data FrameBuffer (n :: Nat) (t :: [ImageKind])
 
 imageType' :: [ImageKind] -> [Type]
-imageType' (Depth: x) = map imageType x 
-imageType' x = map imageType x 
+imageType' (Depth: x) = map imageType x
+imageType' x = map imageType x
 
 type family FragmentOperationKind a :: ImageKind where FragmentOperationKind (FragmentOperation x) = x
 

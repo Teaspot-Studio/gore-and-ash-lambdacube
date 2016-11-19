@@ -1,5 +1,5 @@
 name:                gore-and-ash-lambdacube
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Core module for Gore&Ash engine that do something.
 description:         Please see README.md
 homepage:            https://github.com/TeaspotStudio/gore-and-ash-lambdacube#readme
@@ -11,6 +11,10 @@ copyright:           2016 Anton Gushcha
 category:            Game
 build-type:          Simple
 cabal-version:       >=1.10
+extra-source-files:
+  README.md
+  CHANGELOG.md
+  stack.yaml
 
 library
   hs-source-dirs:     src
