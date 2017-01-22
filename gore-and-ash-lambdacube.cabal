@@ -1,6 +1,6 @@
 name:                gore-and-ash-lambdacube
-version:             0.2.0.0
-synopsis:            Core module for Gore&Ash engine that do something.
+version:             0.3.0.0
+synopsis:            Core module for Gore&Ash engine for
 description:         Please see README.md
 homepage:            https://github.com/TeaspotStudio/gore-and-ash-lambdacube#readme
 license:             BSD3

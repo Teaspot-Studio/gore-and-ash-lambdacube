@@ -1,16 +1,36 @@
 # For more information, see: http://docs.haskellstack.org/en/stable/yaml_configuration.html
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-7.9
+resolver: lts-7.16
 
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
+- location:
+    git: https://github.com/reflex-frp/reflex.git
+    commit: 91299fce0bb2caddfba35af6608df57dd31e3690
+  extra-dep: true
+- location:
+    git: https://github.com/bennofs/reflex-host.git
+    commit: 4701a7b99f8825f7c2bf3b50609a5ba2f622a654
+  extra-dep: true
+- location:
+    git: https://github.com/teaspot-studio/gore-and-ash.git
+    commit: fd8a7f84a10cfd5fae57d9541a752274526c7f7a
+  extra-dep: true
+- location:
+    git: https://github.com/teaspot-studio/gore-and-ash-logging.git
+    commit: 77471b5c6413fb242f657c49efcbd1ef29204c26
+  extra-dep: true
+- location:
+    git: https://github.com/teaspot-studio/gore-and-ash-sdl.git
+    commit: 46a019a1d586c385008abfa77ae32a7b52b12a11
+  extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
-- gore-and-ash-1.2.2.0
-- gore-and-ash-glfw-1.1.2.0
+- gore-and-ash-2.0.0.0
+- gore-and-ash-sdl-3.0.0.0
 - indentation-0.2.1.1
 - lambdacube-compiler-0.6.0.0
 - lambdacube-gl-0.5.1.2

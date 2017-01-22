@@ -1,7 +1,7 @@
 FROM haskell:8.0.1
 
 RUN apt-get update
-RUN apt-get -y install curl
+RUN apt-get -y install curl libgl1-mesa-swx11-dev
 
 ADD mkdocs /opt/project/
 ADD LICENSE /opt/project/
