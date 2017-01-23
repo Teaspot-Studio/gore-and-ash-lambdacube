@@ -35,7 +35,15 @@ import Control.Monad.Fix
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
+import Data.IORef
+import Data.Map.Strict (Map)
 import Data.Proxy
+import Data.Sequence (Seq)
+import LambdaCube.Compiler as LambdaCube
+import LambdaCube.GL as LambdaCubeGL
+
+import qualified Data.Map.Strict as M
+import qualified Data.Sequence as S
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.LambdaCube.API
@@ -48,18 +56,128 @@ data LambdaCubeOptions s = LambdaCubeOptions {
   lambdaOptsNext   :: s -- ^ Nested options of next game module
 }
 
+-- | All info about a LambdaCube pipeline
+data PipelineInfo = PipelineInfo {
+  pipeInfoRenderer :: !GLRenderer
+, pipeInfoSchema :: !PipelineSchema
+, pipeInfoPipeline :: !Pipeline
+}
+
 -- | Internal environment of game module
 data LambdaCubeEnv t = LambdaCubeEnv {
-  -- | Options that were used to create the module
-  lambdaEnvOptions    :: LambdaCubeOptions ()
+  -- | Options that were used to create the module.
+  lambdaEnvOptions       :: !(LambdaCubeOptions ())
+  -- | Holds known pipelines.
+, lambdaEnvPipelines     :: !(IORef (Map PipelineId PipelineInfo))
+  -- | Holds known storages and next free id for a new storage
+, lambdaEnvStorages      :: !(IORef (Int, Map StorageId GLStorage))
+  -- | Holds sequence of storages that are rendered to screen
+, lambdaEnvRenderOrder   :: !(IORef (Seq StorageId))
 }
 
 -- | Create a new environment for game module
 newLambdaCubeEnv :: MonadAppHost t m => LambdaCubeOptions s -> m (LambdaCubeEnv t)
 newLambdaCubeEnv opts = do
+  pipelines <- liftIO $ newIORef mempty
+  storages <- liftIO $ newIORef (0, mempty)
+  order <- liftIO $ newIORef mempty
   return LambdaCubeEnv {
-      lambdaEnvOptions = opts { lambdaOptsNext = () }
+      lambdaEnvOptions     = opts { lambdaOptsNext = () }
+    , lambdaEnvPipelines   = pipelines
+    , lambdaEnvStorages    = storages
+    , lambdaEnvRenderOrder = order
     }
+
+-- | Release module state resources
+freeLambdaCubeEnv :: LambdaCubeEnv t -> IO ()
+freeLambdaCubeEnv LambdaCubeEnv{..} = do
+  mapM_ LambdaCubeGL.disposeStorage . snd =<< readIORef lambdaEnvStorages
+  mapM_ (LambdaCubeGL.disposeRenderer . pipeInfoRenderer) =<< readIORef lambdaEnvPipelines
+
+-- | Update viewport size of all storages
+updateStateViewportSize :: Word -> Word -> LambdaCubeEnv t -> IO ()
+updateStateViewportSize w h LambdaCubeEnv{..} = do
+  m <- snd <$> readIORef lambdaEnvStorages
+  mapM_ (\s -> LambdaCubeGL.setScreenSize s w h) m
+
+-- | Returns True if given pipeline is already exists
+isPipelineRegisteredInternal :: PipelineId -> LambdaCubeEnv t -> IO Bool
+isPipelineRegisteredInternal pid LambdaCubeEnv{..} = do
+  m <- readIORef lambdaEnvPipelines
+  case M.lookup pid m of
+    Nothing -> return False
+    Just _ -> return True
+
+-- | Register new pipeline with renderer in module
+registerPipelineInternal :: PipelineId -> Pipeline -> PipelineSchema -> GLRenderer -> LambdaCubeEnv t -> IO ()
+registerPipelineInternal i ps pl r LambdaCubeEnv{..} = do
+  atomicModifyIORef' lambdaEnvPipelines $ (, ()) . M.insert i info
+  where
+    info = PipelineInfo {
+        pipeInfoRenderer = r
+      , pipeInfoSchema = pl
+      , pipeInfoPipeline = ps
+      }
+
+-- | Removes pipeline from state and deletes it, also destroys all storages of the pipeline
+unregisterPipelineInternal :: PipelineId -> LambdaCubeEnv t -> IO ()
+unregisterPipelineInternal i LambdaCubeEnv{..} = do
+  pipelines <- readIORef lambdaEnvPipelines
+  case M.lookup i pipelines of
+    Nothing -> return ()
+    Just PipelineInfo{..} -> do
+      storages <- snd <$> readIORef lambdaEnvStorages
+      let storagesToDispose = M.filterWithKey (\k _ -> isPipelineStorage i k) storages
+      mapM_ LambdaCubeGL.disposeStorage $ storagesToDispose
+      LambdaCubeGL.disposeRenderer pipeInfoRenderer
+      atomicModifyIORef' lambdaEnvPipelines $ (, ()) . M.delete i
+      atomicModifyIORef' lambdaEnvStorages $ \(n, m) -> ((n, M.filterWithKey (\k _ -> not $ isPipelineStorage i k) m), ())
+
+-- | Getter of pipeline scheme
+getPipelineSchemeInternal :: PipelineId -> LambdaCubeEnv t -> IO (Maybe PipelineSchema)
+getPipelineSchemeInternal i LambdaCubeEnv{..} = fmap pipeInfoSchema . M.lookup i <$> readIORef lambdaEnvPipelines
+
+-- | Registering gl storage for given pipeline
+registerStorageInternal :: PipelineId -> GLStorage -> LambdaCubeEnv t -> IO StorageId
+registerStorageInternal pid storage LambdaCubeEnv{..} = do
+  let mkId n = StorageId {
+          storageId = n
+        , storageScheme = pid
+        }
+  atomicModifyIORef lambdaEnvStorages $ \(i, m) -> let i' = mkId i
+    in ((i + 1, M.insert i' storage m), i')
+
+-- | Remove and deallocate storage
+unregisterStorageInternal :: StorageId -> LambdaCubeEnv t -> IO ()
+unregisterStorageInternal i LambdaCubeEnv{..} = do
+  m <- snd <$> readIORef lambdaEnvStorages
+  case M.lookup i m of
+    Nothing -> return ()
+    Just storage -> do
+      LambdaCubeGL.disposeStorage storage
+      atomicModifyIORef lambdaEnvStorages $ \(n, storages) -> ((n, M.delete i storages), ())
+
+getRendererInternal :: PipelineId -> LambdaCubeEnv t -> IO (Maybe GLRenderer)
+getRendererInternal i LambdaCubeEnv{..} = fmap pipeInfoRenderer . M.lookup i <$> readIORef lambdaEnvPipelines
+
+-- | Find storage in state
+getStorageInternal :: StorageId -> LambdaCubeEnv t -> IO (Maybe GLStorage)
+getStorageInternal i LambdaCubeEnv{..} = M.lookup i . snd <$> readIORef lambdaEnvStorages
+
+-- | Puts storage at end of rendering queue
+renderStorageLastInternal :: StorageId -> LambdaCubeEnv t -> IO ()
+renderStorageLastInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrder $ \m ->
+  (, ()) $ S.filter (/= i) m S.|> i
+
+-- | Puts storage at begining of rendering queue
+renderStorageFirstInternal :: StorageId -> LambdaCubeEnv t -> IO ()
+renderStorageFirstInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrder $ \m ->
+  (, ()) $ i S.<| S.filter (/= i) m
+
+-- | Removes storage from rendering queue
+stopRenderingInternal :: StorageId -> LambdaCubeEnv t -> IO ()
+stopRenderingInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrder $ \m ->
+  (, ()) $ S.filter (/= i) m
 
 -- | Implementation of 'MonadLambdaCube' API.
 --

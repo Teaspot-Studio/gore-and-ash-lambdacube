@@ -22,6 +22,11 @@
       "working_dir": "${project_path}"
     },
     {
+      "name": "Stack examples",
+      "shell_cmd": "stack install --flag gore-and-ash-lambdacube:examples",
+      "working_dir": "${project_path}"
+    },
+    {
       "name": "Stack pedantic examples",
       "shell_cmd": "stack install --pedantic --flag gore-and-ash-lambdacube:examples",
       "working_dir": "${project_path}"
