@@ -19,6 +19,7 @@ module Game.GoreAndAsh.LambdaCube.API(
   ) where
 
 import Control.Exception (Exception)
+import Control.Monad.Catch
 import Control.Monad.Trans
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -63,10 +64,10 @@ isPipelineStorage pid sid = storageScheme sid == pid
 -- @
 -- foo :: (MonadLambdaCube t m, LoggingMonad t m) => m ()
 -- @
-class MonadAppHost t m => MonadLambdaCube t m | m -> t where
+class (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t m | m -> t where
   exampleFunc :: m ()
 
-instance {-# OVERLAPPABLE #-} (MonadTrans mt, MonadAppHost t (mt m), MonadLambdaCube t m)
+instance {-# OVERLAPPABLE #-} (MonadTrans mt, MonadAppHost t (mt m), MonadThrow (mt m), MonadLambdaCube t m)
   => MonadLambdaCube t (mt m) where
 
   exampleFunc = lift exampleFunc

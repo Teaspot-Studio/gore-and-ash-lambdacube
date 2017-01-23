@@ -204,7 +204,7 @@ newtype LambdaCubeT t m a = LambdaCubeT { runLambdaCubeT :: ReaderT (LambdaCubeE
   deriving (Functor, Applicative, Monad, MonadReader (LambdaCubeEnv t), MonadFix
     , MonadIO, MonadThrow, MonadCatch, MonadMask, MonadSample t, MonadHold t)
 
-instance {-# OVERLAPPING #-} MonadAppHost t m => MonadLambdaCube t (LambdaCubeT t m) where
+instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t (LambdaCubeT t m) where
   exampleFunc = return ()
   {-# INLINE exampleFunc #-}
 
