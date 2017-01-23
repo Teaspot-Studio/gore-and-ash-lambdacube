@@ -37,16 +37,23 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.IORef
 import Data.Map.Strict (Map)
+import Data.Monoid
 import Data.Proxy
 import Data.Sequence (Seq)
+import Data.Text (Text)
 import LambdaCube.Compiler as LambdaCube
 import LambdaCube.GL as LambdaCubeGL
 
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
+import qualified Data.Text as T
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.LambdaCube.API
+
+-- | Helper to show values in 'Text'
+showt :: Show a => a -> Text
+showt = T.pack . show
 
 -- | Options that are passed to 'runModule' at application startup.
 --
@@ -205,8 +212,58 @@ newtype LambdaCubeT t m a = LambdaCubeT { runLambdaCubeT :: ReaderT (LambdaCubeE
     , MonadIO, MonadThrow, MonadCatch, MonadMask, MonadSample t, MonadHold t)
 
 instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t (LambdaCubeT t m) where
-  exampleFunc = return ()
-  {-# INLINE exampleFunc #-}
+  lambdacubeUpdateSize !w !h = do
+    s <- ask
+    liftIO $ updateStateViewportSize w h s
+
+  lambdacubeAddPipeline !ps !mn !pid !pwr = do
+    s <- ask
+    isRegistered <- liftIO $ isPipelineRegisteredInternal pid s
+    when isRegistered . throwM . PipeLineAlreadyRegistered $! pid
+    mpd <- liftIO $ LambdaCube.compileMain ps OpenGL33 (T.unpack mn)
+    case mpd of
+      Left err -> throwM . PipeLineCompileFailed mn pid $! "compile error:\n" <> showt err
+      Right pd -> do
+        let sch = makeSchema pwr
+        r <- liftIO $ LambdaCubeGL.allocRenderer pd
+        liftIO $ registerPipelineInternal pid pd sch r s
+
+  lambdacubeDeletePipeline !i = do
+    s <- ask
+    liftIO $ unregisterPipelineInternal i s
+
+  lambdacubeCreateStorage !i = do
+    s <- ask
+    mscheme <- liftIO $ getPipelineSchemeInternal i s
+    case mscheme of
+      Nothing -> throwM . PipeLineNotFound $! i
+      Just sch -> liftIO $ do
+        storage <- LambdaCubeGL.allocStorage sch
+        si <- liftIO $ registerStorageInternal i storage s
+        return (si, storage)
+
+  lambdacubeDeleteStorage !i = do
+    s <- ask
+    liftIO $ unregisterStorageInternal i s
+
+  lambdacubeGetStorage !si = do
+    s <- ask
+    ms <- liftIO $ getStorageInternal si s
+    case ms of
+      Nothing -> throwM . StorageNotFound $! si
+      Just storage -> return storage
+
+  lambdacubeRenderStorageLast !si = do
+    s <- ask
+    liftIO $ renderStorageLastInternal si s
+
+  lambdacubeRenderStorageFirst !si = do
+    s <- ask
+    liftIO $ renderStorageFirstInternal si s
+
+  lambdacubeStopRendering !si = do
+    s <- ask
+    liftIO $ stopRenderingInternal si s
 
 -- Boilerplate
 

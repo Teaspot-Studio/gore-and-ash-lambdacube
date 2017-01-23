@@ -39,6 +39,7 @@ library
 
   default-language:    Haskell2010
   default-extensions:
+    BangPatterns
     DataKinds
     DeriveGeneric
     FlexibleInstances
