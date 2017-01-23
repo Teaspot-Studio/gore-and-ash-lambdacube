@@ -2,23 +2,7 @@
 #
 # Some commonly used options have been documented as comments in this file.
 # For advanced use and comprehensive documentation of the format, please see:
-# http://docs.haskellstack.org/en/stable/yaml_configuration/
-
-<<<<<<< HEAD
-# Resolver to choose a 'specific' stackage snapshot or a compiler version.
-# A snapshot resolver dictates the compiler version and the set of packages
-# to be used for project dependencies. For example:
-#
-# resolver: lts-3.5
-# resolver: nightly-2015-09-21
-# resolver: ghc-7.10.2
-# resolver: ghcjs-0.1.0_ghc-7.10.2
-# resolver:
-#  name: custom-snapshot
-#  location: "./custom-snapshot.yaml"
-=======
-# Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
->>>>>>> 30e8406ce1760c640c2a5763e5a6768c07dafdf1
+# http://docs.haskellstack.org/en/stable/yaml_configuration/+-
 resolver: lts-7.16
 
 # User packages to be built.
@@ -67,7 +51,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/lambdacube3d/lambdacube-gl.git
-    commit: 34d9d28e477c36bff04fbe72e4625f84d3f35f8b
+    commit: 11749fd3c9d5e56b7e696d89908226fbe827aa10
   extra-dep: true
 - location:
     git: https://github.com/lambdacube3d/lambdacube-ir.git

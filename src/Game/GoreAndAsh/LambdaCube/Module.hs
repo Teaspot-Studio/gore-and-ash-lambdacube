@@ -172,7 +172,7 @@ renderStorageLastInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRende
 -- | Puts storage at begining of rendering queue
 renderStorageFirstInternal :: StorageId -> LambdaCubeEnv t -> IO ()
 renderStorageFirstInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrder $ \m ->
-  -- (, ()) $ i S.<| S.filter (/= i) m
+  (, ()) $ i S.<| S.filter (/= i) m
 
 -- | Removes storage from rendering queue
 stopRenderingInternal :: StorageId -> LambdaCubeEnv t -> IO ()
