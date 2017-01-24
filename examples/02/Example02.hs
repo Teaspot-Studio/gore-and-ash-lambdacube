@@ -6,6 +6,7 @@ import Control.Monad.Catch
 import Control.Monad.Except
 import Data.Proxy
 import Foreign.C
+import Matrix
 import SDL (get)
 
 import qualified Data.Map.Strict as M
@@ -32,12 +33,12 @@ mainPipeline = PipelineId "mainPipeline"
 -- | Load and compile LambdaCube pipeline
 initPipe :: forall t m . (MonadLambdaCube t m) => m ()
 initPipe = do
-  lambdacubeAddPipeline [".", "../shared"] "example01.lc" mainPipeline $ do
+  lambdacubeAddPipeline [".", "../shared"] "example02.lc" mainPipeline $ do
     defObjectArray "objects" Triangles $ do
-      "position"  @: Attribute_V2F
+      "position"  @: Attribute_V3F
       "uv"        @: Attribute_V2F
     defUniforms $ do
-      "time"           @: Float
+      "projmat"        @: M44F
       "diffuseTexture" @: FTexture2D
 
 -- | Draw single frame with LambdaCube on SDL context
@@ -64,7 +65,7 @@ app = do
   renderer <- lambdacubeGetRenderer
   rec
     win <- createMainWindow tickE (drawFrame sizeUpdater renderer) $ defaultWindowCfg
-        & windowCfgTitle .~ pure "Gore&Ash LambdaCube example 01"
+        & windowCfgTitle .~ pure "Gore&Ash LambdaCube example 02"
         & windowCfgConfig .~ defaultWindow {
             windowOpenGL = Just defaultOpenGL {
                 glProfile = Core Normal 3 3
@@ -72,7 +73,7 @@ app = do
           }
     glMakeCurrent (win ^. windowWindow) (win ^. windowContext)
     initPipe
-    tickE <- uncurry simulateStorage =<< initStorage
+    tickE <- uncurry (simulateStorage $ windowAspect win) =<< initStorage
   return ()
 
 -- | Initialise LambaCube storages
@@ -81,8 +82,7 @@ initStorage = do
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
   textureData <- liftIO $ do
     -- upload geometry to GPU and add to pipeline input
-    _ <- LC.uploadMeshToGPU triangleA >>= LC.addMeshToObjectArray storage "objects" []
-    _ <- LC.uploadMeshToGPU triangleB >>= LC.addMeshToObjectArray storage "objects" []
+    _ <- LC.uploadMeshToGPU cubeMesh >>= LC.addMeshToObjectArray storage "objects" []
 
     -- load image and upload texture
     Right img <- Juicy.readImage "../shared/logo.png"
@@ -91,17 +91,23 @@ initStorage = do
   lambdacubeRenderStorageFirst sid
   return (storage, textureData)
 
+-- | Get dynamic aspect ratio of window
+windowAspect :: Reflex t => WindowWidget t -> Dynamic t Float
+windowAspect w = ffor (w ^. windowSizeDyn) $ \(SDL.V2 w h) ->
+  fromIntegral w / fromIntegral h
+
 -- | Constantly update LambdaCube storage
-simulateStorage :: forall t m . (MonadLambdaCube t m, TimerMonad t m) => GLStorage -> TextureData -> m (Event t ())
-simulateStorage storage textureData = do
+simulateStorage :: forall t m . (MonadLambdaCube t m, TimerMonad t m) => Dynamic t Float  -> GLStorage -> TextureData -> m (Event t ())
+simulateStorage aspectD storage textureData = do
   let dt = 1 / 60 :: Float
   tickE <- tickEvery (realToFrac dt)
   tD <- foldDyn (const (+ dt)) 0 tickE
   performEvent_ $ ffor tickE $ const $ do
     t <- sample . current $ tD
+    aspect <- sample . current $ aspectD
     liftIO $ LC.updateUniforms storage $ do
       "diffuseTexture" @= return textureData
-      "time" @= return t
+      "projmat" @= return (mvp aspect t)
   return tickE
 
 main :: IO ()
@@ -113,23 +119,39 @@ opts = LambdaCubeOptions {
   }
 
 -- geometry data: triangles
-triangleA :: LC.Mesh
-triangleA = Mesh
-    { mAttributes   = M.fromList
-        [ ("position",  A_V2F $ V.fromList [LC.V2 1 1, LC.V2 1 (-1), LC.V2 (-1) (-1)])
-        , ("uv",        A_V2F $ V.fromList [LC.V2 1 1, LC.V2 0 1, LC.V2 0 0])
-        ]
-    , mPrimitive    = P_Triangles
-    }
+cubeMesh :: LC.Mesh
+cubeMesh = Mesh
+  { mAttributes   = M.fromList
+      [ ("position",  A_V3F $ V.fromList vertecies)
+      , ("uv",        A_V2F $ V.fromList uvs)
+      ]
+  , mPrimitive    = P_Triangles
+  }
+  where
+  vertecies = [
+      v3, v2, v1, v3, v1, v0
+    , v4, v7, v6, v4, v6, v5
+    , v0, v1, v7, v0, v7, v4
+    , v5, v6, v2, v5, v2, v3
+    , v2, v6, v7, v2, v7, v1
+    , v5, v3, v0, v5, v0, v4
+    ]
+  uvs = concat $ replicate 6 [u1, u2, u3, u1, u3, u0]
 
-triangleB :: LC.Mesh
-triangleB = Mesh
-    { mAttributes   = M.fromList
-        [ ("position",  A_V2F $ V.fromList [LC.V2 1 1, LC.V2 (-1) (-1), LC.V2 (-1) 1])
-        , ("uv",        A_V2F $ V.fromList [LC.V2 1 1, LC.V2 0 0, LC.V2 1 0])
-        ]
-    , mPrimitive    = P_Triangles
-    }
+  v0 = LC.V3 (-1) (-1) (-1)
+  v1 = LC.V3 (-1)   1  (-1)
+  v2 = LC.V3   1    1  (-1)
+  v3 = LC.V3   1  (-1) (-1)
+  v4 = LC.V3 (-1) (-1)   1
+  v5 = LC.V3   1  (-1)   1
+  v6 = LC.V3   1    1    1
+  v7 = LC.V3 (-1)   1    1
+
+  u0 = LC.V2 0 0
+  u1 = LC.V2 1 0
+  u2 = LC.V2 1 1
+  u3 = LC.V2 0 1
+
 
 -- Boilerplate below
 
