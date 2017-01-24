@@ -44,19 +44,14 @@ drawFrame :: forall t . (ReflexHost t, MonadIO (HostFrame t))
   -> Window -- ^ Window we render on
   -> Renderer -- ^ Renderer of the window
   -> HostFrame t ()
-drawFrame updateLambdaCubeSize renderLambdaCube win r = do
-  SDL.V2 w h <- getCurrentSize
+drawFrame updateLambdaCubeSize renderLambdaCube win _ = do
+  -- rendererDrawColor r $= SDL.V4 0 0 0 0
+  -- clear r
+  SDL.V2 w h <- glGetDrawableSize win
   liftIO $ do
-    updateLambdaCubeSize w h
+    updateLambdaCubeSize (fromIntegral w) (fromIntegral h)
     renderLambdaCube
   glSwapWindow win
-  where
-    getCurrentSize :: HostFrame t (SDL.V2 Word)
-    getCurrentSize = do
-      vp <- get (rendererViewport r)
-      case vp of
-        Nothing -> return 0
-        Just (Rectangle _ s) -> return $ fromIntegral <$> s
 
 -- | Initialise window and set up render pipeline
 app :: forall t m . (MonadLambdaCube t m, MonadSDL t m) => m ()
@@ -64,12 +59,13 @@ app = do
   SDL.initializeAll
   sizeUpdater <- lambdacubeGetSizeUpdater
   renderer <- lambdacubeGetRenderer
-  _ <- createMainWindow never (drawFrame sizeUpdater renderer) $ defaultWindowCfg &
-      windowCfgConfig .~ defaultWindow {
+  win <- createMainWindow never (drawFrame sizeUpdater renderer) $ defaultWindowCfg
+      & windowCfgConfig .~ defaultWindow {
           windowOpenGL = Just defaultOpenGL {
               glProfile = Core Normal 3 3
             }
         }
+  glMakeCurrent (win ^. windowWindow) (win ^. windowContext)
   initPipe
   return ()
 

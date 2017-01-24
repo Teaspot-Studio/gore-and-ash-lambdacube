@@ -43,7 +43,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-sdl.git
-    commit: 03b43a5b3c130ddc995a1e291ac2daa129d37980
+    commit: efc813472d2182d36ae2aafceb11203ee9d3ce3b
   extra-dep: true
 - location:
     git: https://github.com/lambdacube3d/lambdacube-compiler.git
