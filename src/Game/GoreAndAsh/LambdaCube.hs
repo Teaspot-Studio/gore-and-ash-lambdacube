@@ -9,7 +9,11 @@ Stability   : experimental
 Portability : POSIX
 -}
 module Game.GoreAndAsh.LambdaCube(
-    MonadLambdaCube(..)
+    LambdaCubeException(..)
+  , PipelineId(..)
+  , StorageId(..)
+  , isPipelineStorage
+  , MonadLambdaCube(..)
   , LambdaCubeT(..)
   , LambdaCubeOptions(..)
   ) where

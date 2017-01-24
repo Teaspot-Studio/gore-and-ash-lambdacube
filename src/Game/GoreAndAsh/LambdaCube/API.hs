@@ -75,6 +75,9 @@ class (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t m | m -> t where
     -> Word -- ^ Height of screen in pixels
     -> m ()
 
+  -- | Get function same as 'lambdacubeUpdateSize' but operational in IO monad.
+  lambdacubeGetSizeUpdater :: m (Word -> Word -> IO ())
+
   -- | Compile and register new pipeline.
   --
   -- Throws: 'PipeLineCompileFailed' or 'PipeLineAlreadyRegistered' when failed.
@@ -114,11 +117,20 @@ class (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t m | m -> t where
   -- | Removes storage from rendering queue
   lambdacubeStopRendering :: StorageId -> m ()
 
+  -- | Perform rendering of all queued storages
+  lambdacubeRender :: m ()
+
+  -- | Get function that renders current storages each call
+  lambdacubeGetRenderer :: m (IO ())
+
 instance {-# OVERLAPPABLE #-} (MonadTrans mt, MonadAppHost t (mt m), MonadThrow (mt m), MonadLambdaCube t m)
   => MonadLambdaCube t (mt m) where
 
   lambdacubeUpdateSize w h = lift $ lambdacubeUpdateSize w h
   {-# INLINE lambdacubeUpdateSize #-}
+
+  lambdacubeGetSizeUpdater = lift lambdacubeGetSizeUpdater
+  {-# INLINE lambdacubeGetSizeUpdater #-}
 
   lambdacubeAddPipeline a b c d = lift $ lambdacubeAddPipeline a b c d
   {-# INLINE lambdacubeAddPipeline #-}
@@ -143,3 +155,9 @@ instance {-# OVERLAPPABLE #-} (MonadTrans mt, MonadAppHost t (mt m), MonadThrow 
 
   lambdacubeStopRendering a = lift $ lambdacubeStopRendering a
   {-# INLINE lambdacubeStopRendering #-}
+
+  lambdacubeRender = lift lambdacubeRender
+  {-# INLINE lambdacubeRender #-}
+
+  lambdacubeGetRenderer = lift lambdacubeGetRenderer
+  {-# INLINE lambdacubeGetRenderer #-}

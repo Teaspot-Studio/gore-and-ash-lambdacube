@@ -186,6 +186,26 @@ stopRenderingInternal :: StorageId -> LambdaCubeEnv t -> IO ()
 stopRenderingInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrder $ \m ->
   (, ()) $ S.filter (/= i) m
 
+-- | Render all queued storages
+renderStorages :: LambdaCubeEnv t -> IO ()
+renderStorages e@LambdaCubeEnv{..} = do
+  renderings <- readIORef lambdaEnvRenderOrder
+  mapM_ (renderStorage e) renderings
+  where
+  renderStorage e si = do
+    ms <- getStorageInternal si e
+    case ms of
+      Nothing -> return ()
+      Just storage -> do
+        mr <- getRendererInternal (storageScheme si) e
+        case mr of
+          Nothing -> return ()
+          Just renderer -> do
+            mres <- liftIO $ LambdaCubeGL.setStorage renderer storage
+            case mres of
+              Just er -> throwM $! PipeLineIncompatible si (T.pack er)
+              Nothing -> liftIO $ LambdaCubeGL.renderFrame renderer
+
 -- | Implementation of 'MonadLambdaCube' API.
 --
 -- [@t@] FRP engine, you could ignore this parameter as it resolved only at main
@@ -215,6 +235,10 @@ instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube
   lambdacubeUpdateSize !w !h = do
     s <- ask
     liftIO $ updateStateViewportSize w h s
+  {-# INLINE lambdacubeUpdateSize #-}
+
+  lambdacubeGetSizeUpdater = return . (\s w h -> updateStateViewportSize w h s) =<< ask
+  {-# INLINE lambdacubeGetSizeUpdater #-}
 
   lambdacubeAddPipeline !ps !mn !pid !pwr = do
     s <- ask
@@ -227,10 +251,12 @@ instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube
         let sch = makeSchema pwr
         r <- liftIO $ LambdaCubeGL.allocRenderer pd
         liftIO $ registerPipelineInternal pid pd sch r s
+  {-# INLINE lambdacubeAddPipeline #-}
 
   lambdacubeDeletePipeline !i = do
     s <- ask
     liftIO $ unregisterPipelineInternal i s
+  {-# INLINE lambdacubeDeletePipeline #-}
 
   lambdacubeCreateStorage !i = do
     s <- ask
@@ -241,10 +267,12 @@ instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube
         storage <- LambdaCubeGL.allocStorage sch
         si <- liftIO $ registerStorageInternal i storage s
         return (si, storage)
+  {-# INLINE lambdacubeCreateStorage #-}
 
   lambdacubeDeleteStorage !i = do
     s <- ask
     liftIO $ unregisterStorageInternal i s
+  {-# INLINE lambdacubeDeleteStorage #-}
 
   lambdacubeGetStorage !si = do
     s <- ask
@@ -252,18 +280,28 @@ instance {-# OVERLAPPING #-} (MonadAppHost t m, MonadThrow m) => MonadLambdaCube
     case ms of
       Nothing -> throwM . StorageNotFound $! si
       Just storage -> return storage
+  {-# INLINE lambdacubeGetStorage #-}
 
   lambdacubeRenderStorageLast !si = do
     s <- ask
     liftIO $ renderStorageLastInternal si s
+  {-# INLINE lambdacubeRenderStorageLast #-}
 
   lambdacubeRenderStorageFirst !si = do
     s <- ask
     liftIO $ renderStorageFirstInternal si s
+  {-# INLINE lambdacubeRenderStorageFirst #-}
 
   lambdacubeStopRendering !si = do
     s <- ask
     liftIO $ stopRenderingInternal si s
+  {-# INLINE lambdacubeStopRendering #-}
+
+  lambdacubeRender = liftIO . renderStorages =<< ask
+  {-# INLINE lambdacubeRender #-}
+
+  lambdacubeGetRenderer = return . renderStorages =<< ask
+  {-# INLINE lambdacubeGetRenderer #-}
 
 -- Boilerplate
 
