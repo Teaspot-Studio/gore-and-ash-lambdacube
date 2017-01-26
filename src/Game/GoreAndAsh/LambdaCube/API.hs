@@ -1,41 +1,89 @@
 {-|
 Module      : Game.GoreAndAsh.LambdaCube.API
-Description : Monadic and arrow API for module
-Copyright   : (c) Anton Gushcha, 2016
+Description : API of resource module
+Copyright   : (c) Anton Gushcha, 2016-2017
+                  Anatoly Nardid, 2016-2017
 License     : BSD3
 Maintainer  : ncrashed@gmail.com
 Stability   : experimental
 Portability : POSIX
+
+The module contains public API for lambda cube module.
 -}
 module Game.GoreAndAsh.LambdaCube.API(
-    MonadLambdaCube(..)
-  , LambdaCubeException(..)
+    LambdaCubeException(..)
+  , PipelineId(..)
+  , StorageId(..)
+  , isPipelineStorage
+  , MonadLambdaCube(..)
   ) where
 
-import Control.Monad.Catch (throwM, MonadThrow)
-import Control.Monad.State.Strict
+import Control.Exception (Exception)
+import Control.Monad.Catch
+import Control.Monad.Trans
 import Control.Monad.Writer (Writer)
+import Data.Text (Text)
+import GHC.Generics (Generic)
 
 import LambdaCube.Compiler as LambdaCube
 import LambdaCube.GL as LambdaCubeGL
 
-import Game.GoreAndAsh.LambdaCube.Module
-import Game.GoreAndAsh.LambdaCube.State
+import Game.GoreAndAsh
 
--- | Low level monadic API for module.
-class (MonadIO m, MonadThrow m) => MonadLambdaCube m where
+-- | Exception type that could be thrown by the module
+data LambdaCubeException =
+  -- | Thrown when a pipeline compilation failed, first is pipeline main module, last is error message
+    PipeLineCompileFailed Text PipelineId Text
+  -- | Thrown when tries to register the same pipeline twice
+  | PipeLineAlreadyRegistered PipelineId
+  -- | Trhown when tries to create storage for unregistered pipeline
+  | PipeLineNotFound PipelineId
+  -- | Thrown when tries to get unregistered storage
+  | StorageNotFound StorageId
+  -- | Thrown when failed to bind pipeline to context, contains pipeline name and error message
+  | PipeLineIncompatible StorageId Text
+  deriving (Generic, Show)
+
+instance Exception LambdaCubeException
+
+-- | ID to uniquely identify LambdaCube rednering pipeline
+newtype PipelineId = PipelineId { unPipelineId :: Text }
+  deriving (Generic, Eq, Ord, Show)
+
+-- | ID to uniquely identify LambdaCube storage
+data StorageId = StorageId {
+    storageId     :: !Int
+  , storageScheme :: !PipelineId
+  }
+  deriving (Generic, Eq, Ord, Show)
+
+-- | Check is storage binded to specified pipeline
+isPipelineStorage :: PipelineId -> StorageId -> Bool
+isPipelineStorage pid sid = storageScheme sid == pid
+
+-- | Public API of resouce module.
+--
+-- You can use like a mtl type class:
+--
+-- @
+-- foo :: (MonadLambdaCube t m, LoggingMonad t m) => m ()
+-- @
+class (MonadAppHost t m, MonadThrow m) => MonadLambdaCube t m | m -> t where
   -- | Update viewport size for rendering engine
   -- Should be called when window size is changed (or every frame)
   lambdacubeUpdateSize :: Word -- ^ Width of screen in pixels
     -> Word -- ^ Height of screen in pixels
     -> m ()
 
+  -- | Get function same as 'lambdacubeUpdateSize' but operational in IO monad.
+  lambdacubeGetSizeUpdater :: m (Word -> Word -> IO ())
+
   -- | Compile and register new pipeline.
   --
   -- Throws: 'PipeLineCompileFailed' or 'PipeLineAlreadyRegistered' when failed.
   lambdacubeAddPipeline ::
     [FilePath] -- ^ Where to find LC modules
-    -> String -- ^ Name of main module (without .lc)
+    -> Text -- ^ Name of main module (without .lc)
     -> PipelineId -- ^ Name of pipeline to register
     -> Writer PipelineSchema a -- ^ Pipeline inputs description
     -> m ()
@@ -69,66 +117,47 @@ class (MonadIO m, MonadThrow m) => MonadLambdaCube m where
   -- | Removes storage from rendering queue
   lambdacubeStopRendering :: StorageId -> m ()
 
-instance {-# OVERLAPPING #-} (MonadIO m, MonadThrow m) => MonadLambdaCube (LambdaCubeT s m) where
-  lambdacubeUpdateSize !w !h = do
-    s <- get
-    liftIO $ updateStateViewportSize w h s
+  -- | Perform rendering of all queued storages
+  lambdacubeRender :: m ()
 
-  lambdacubeAddPipeline !ps !mn !pid !pwr = do
-    s <- get
-    when (isPipelineRegisteredInternal pid s) . throwM . PipeLineAlreadyRegistered $! pid
-    mpd <- liftIO $ LambdaCube.compileMain ps OpenGL33 mn
-    case mpd of
-      Left err -> throwM . PipeLineCompileFailed mn pid $! "compile error:\n" ++ show err
-      Right pd -> do
-        let sch = makeSchema pwr
-        r <- liftIO $ LambdaCubeGL.allocRenderer pd
-        put $! registerPipelineInternal pid pd sch r s
+  -- | Get function that renders current storages each call
+  lambdacubeGetRenderer :: m (IO ())
 
-  lambdacubeDeletePipeline !i = do
-    s <- get
-    s' <- liftIO $ unregisterPipelineInternal i s
-    put s'
+instance {-# OVERLAPPABLE #-} (MonadTrans mt, MonadAppHost t (mt m), MonadThrow (mt m), MonadLambdaCube t m)
+  => MonadLambdaCube t (mt m) where
 
-  lambdacubeCreateStorage !i = do
-    s <- get
-    case getPipelineSchemeInternal i s of
-      Nothing -> throwM . PipeLineNotFound $! i
-      Just sch -> do
-        storage <- liftIO $ LambdaCubeGL.allocStorage sch
-        si <- state $ registerStorageInternal i storage
-        return (si, storage)
+  lambdacubeUpdateSize w h = lift $ lambdacubeUpdateSize w h
+  {-# INLINE lambdacubeUpdateSize #-}
 
-  lambdacubeDeleteStorage !i = do
-    s <- get
-    s' <- liftIO $ unregisterStorageInternal i s
-    put s'
+  lambdacubeGetSizeUpdater = lift lambdacubeGetSizeUpdater
+  {-# INLINE lambdacubeGetSizeUpdater #-}
 
-  lambdacubeGetStorage !si = do
-    s <- get
-    case getStorageInternal si s of
-      Nothing -> throwM . StorageNotFound $! si
-      Just storage -> return storage
-
-  lambdacubeRenderStorageLast !si = do
-    s <- get
-    put $! renderStorageLastInternal si s
-
-  lambdacubeRenderStorageFirst !si = do
-    s <- get
-    put $! renderStorageFirstInternal si s
-
-  lambdacubeStopRendering !si = do
-    s <- get
-    put $! stopRenderingInternal si s
-
-instance {-# OVERLAPPABLE #-} (MonadIO (mt m), MonadThrow (mt m), MonadLambdaCube m, MonadTrans mt) => MonadLambdaCube (mt m) where
-  lambdacubeUpdateSize a b = lift $ lambdacubeUpdateSize a b
   lambdacubeAddPipeline a b c d = lift $ lambdacubeAddPipeline a b c d
+  {-# INLINE lambdacubeAddPipeline #-}
+
   lambdacubeDeletePipeline a = lift $ lambdacubeDeletePipeline a
+  {-# INLINE lambdacubeDeletePipeline #-}
+
   lambdacubeCreateStorage a = lift $ lambdacubeCreateStorage a
+  {-# INLINE lambdacubeCreateStorage #-}
+
   lambdacubeDeleteStorage a = lift $ lambdacubeDeleteStorage a
+  {-# INLINE lambdacubeDeleteStorage #-}
+
   lambdacubeGetStorage a = lift $ lambdacubeGetStorage a
+  {-# INLINE lambdacubeGetStorage #-}
+
   lambdacubeRenderStorageLast a = lift $ lambdacubeRenderStorageLast a
+  {-# INLINE lambdacubeRenderStorageLast #-}
+
   lambdacubeRenderStorageFirst a = lift $ lambdacubeRenderStorageFirst a
+  {-# INLINE lambdacubeRenderStorageFirst #-}
+
   lambdacubeStopRendering a = lift $ lambdacubeStopRendering a
+  {-# INLINE lambdacubeStopRendering #-}
+
+  lambdacubeRender = lift lambdacubeRender
+  {-# INLINE lambdacubeRender #-}
+
+  lambdacubeGetRenderer = lift lambdacubeGetRenderer
+  {-# INLINE lambdacubeGetRenderer #-}

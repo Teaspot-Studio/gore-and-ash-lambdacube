@@ -1,3 +1,0 @@
-stack upload .
-sudo docker build -t gore-and-ash-lambdacube .
-sudo docker run --rm -it gore-and-ash-lambdacube

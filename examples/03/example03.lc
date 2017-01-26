@@ -1,14 +1,14 @@
-type Position = Vec 3 Float 
-type PositionHomo = Vec 4 Float 
+type Position = Vec 3 Float
+type PositionHomo = Vec 4 Float
 type Normal = Vec 3 Float
 type UV = Vec 2 Float
-type Color = Vec 4 Float 
-type Direction = Vec 3 Float 
+type Color = Vec 4 Float
+type Direction = Vec 3 Float
 
-homonize :: Vec 3 Float -> Vec 4 Float 
-homonize v = V4 v%x v%y v%z 1 
+homonize :: Vec 3 Float -> Vec 4 Float
+homonize v = V4 v%x v%y v%z 1
 
-unhomonize :: Vec 4 Float -> Vec 3 Float 
+unhomonize :: Vec 4 Float -> Vec 3 Float
 unhomonize v = V3 (v%x / v%w) (v%y / v%w) (v%z / v%w)
 
 makeFrame (modelMat :: Mat 4 4 Float)
@@ -42,7 +42,7 @@ makeFrame (modelMat :: Mat 4 4 Float)
 
     enlight :: (Position, Normal, UV, Direction, Direction) -> ((Color))
     enlight (pworld, normalCamspace, uv, eyeDirCamspace, lightDir) = ((homonize colorLinear))
-      where 
+      where
         diffuseColor = texture2D (Sampler PointFilter MirroredRepeat texture) uv
         ambientColor = diffuseColor%xyz *! 0.1
         specColor = V3 1 1 1
@@ -53,14 +53,14 @@ makeFrame (modelMat :: Mat 4 4 Float)
         squareFade = 3
 
         n = normalize normalCamspace
-        l = normalize lightDir 
+        l = normalize lightDir
         lightDist = length $ lightPos - pworld
         lightFade = lightPower / (linearFade * lightDist + squareFade * lightDist * lightDist)
 
         lambertian = min (max (n `dot` l) 0) 1
-        e = normalize eyeDirCamspace 
-        r = reflect (l *! (-1)) n 
-        cosAlpha = max 0 (min 1 $ e `dot` r) 
+        e = normalize eyeDirCamspace
+        r = reflect (l *! (-1)) n
+        cosAlpha = max 0 (min 1 $ e `dot` r)
         specular = if lambertian <= 0 then 0 else pow cosAlpha shininess
 
         colorLinear = ambientColor + diffuseColor%xyz *! (lambertian * lightFade) + specColor *! (specular * lightFade)

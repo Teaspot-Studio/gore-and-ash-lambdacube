@@ -1,3 +1,8 @@
+0.3.0.0
+=======
+
+* Ported to new design with reflex.
+
 0.2.0.0
 =======
 
