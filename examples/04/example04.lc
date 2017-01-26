@@ -38,7 +38,7 @@ diffuseBuffer (modelMat :: Mat 4 4 Float)
               (projMat :: Mat 4 4 Float)
               (texture :: Texture)
               (prims :: PrimitiveStream Triangle (Vec 3 Float, Vec 3 Float, Vec 2 Float))
-  = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 0 1.0))
+  = imageFrame (emptyDepthImage 1, emptyColorImage (V4 0 0 1 1.0))
   `overlay`
       prims
     & mapPrimitives (\(v, _, uv) -> (transpose (modelMat .*. viewMat .*. projMat) *. homonize v, uv))

@@ -80,6 +80,7 @@ app = do
             windowOpenGL = Just defaultOpenGL {
                 glProfile = Core Normal 3 3
               }
+          , windowInitialSize = SDL.V2 640 640
           }
     glMakeCurrent (win ^. windowWindow) (win ^. windowContext)
     initPipe
@@ -106,9 +107,7 @@ simulateStorage win storage gpuMesh = do
   let dt = 1 / 60 :: Float
   tickE <- tickEvery (realToFrac dt)
   tD <- foldDyn (const (+ dt)) 0 tickE
-  simulateCube tD storage gpuMesh
-  simulateWall tD storage gpuMesh
-  performEvent_ $ ffor tickE $ const $ do
+  tickedE <- performEvent $ ffor tickE $ const $ do
     t <- sample . current $ tD
     aspect <- sample . current $ windowAspect win
     SDL.V2 w h <- sample . current $ win ^. windowSizeDyn
@@ -118,7 +117,9 @@ simulateStorage win storage gpuMesh = do
       "lightDir" @= return lightDirection
       "windowWidth" @= return (fromIntegral w :: Int32)
       "windowHeight" @= return (fromIntegral h :: Int32)
-  return tickE
+  simulateCube tD storage gpuMesh
+  simulateWall tD storage gpuMesh
+  return tickedE
 
 -- | Render cube object
 simulateCube :: forall t m . (MonadLambdaCube t m)
