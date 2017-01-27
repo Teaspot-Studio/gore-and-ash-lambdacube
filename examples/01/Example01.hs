@@ -5,8 +5,6 @@ import Control.Lens
 import Control.Monad.Catch
 import Control.Monad.Except
 import Data.Proxy
-import Foreign.C
-import SDL (get)
 
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V

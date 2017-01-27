@@ -5,9 +5,7 @@ import Control.Lens
 import Control.Monad.Catch
 import Control.Monad.Except
 import Data.Proxy
-import Foreign.C
 import Matrix
-import SDL (get)
 
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
@@ -93,7 +91,7 @@ initStorage = do
 
 -- | Get dynamic aspect ratio of window
 windowAspect :: Reflex t => WindowWidget t -> Dynamic t Float
-windowAspect w = ffor (w ^. windowSizeDyn) $ \(SDL.V2 w h) ->
+windowAspect win = ffor (win ^. windowSizeDyn) $ \(SDL.V2 w h) ->
   fromIntegral w / fromIntegral h
 
 -- | Constantly update LambdaCube storage

@@ -95,12 +95,6 @@ newLambdaCubeEnv opts = do
     , lambdaEnvRenderOrder = order
     }
 
--- | Release module state resources
-freeLambdaCubeEnv :: LambdaCubeEnv t -> IO ()
-freeLambdaCubeEnv LambdaCubeEnv{..} = do
-  mapM_ LambdaCubeGL.disposeStorage . snd =<< readIORef lambdaEnvStorages
-  mapM_ (LambdaCubeGL.disposeRenderer . pipeInfoRenderer) =<< readIORef lambdaEnvPipelines
-
 -- | Update viewport size of all storages
 updateStateViewportSize :: Word -> Word -> LambdaCubeEnv t -> IO ()
 updateStateViewportSize w h LambdaCubeEnv{..} = do
@@ -190,9 +184,9 @@ stopRenderingInternal i LambdaCubeEnv{..} = atomicModifyIORef lambdaEnvRenderOrd
 renderStorages :: LambdaCubeEnv t -> IO ()
 renderStorages e@LambdaCubeEnv{..} = do
   renderings <- readIORef lambdaEnvRenderOrder
-  mapM_ (renderStorage e) renderings
+  mapM_ renderStorage renderings
   where
-  renderStorage e si = do
+  renderStorage si = do
     ms <- getStorageInternal si e
     case ms of
       Nothing -> return ()

@@ -25,7 +25,6 @@ import Control.Monad.Writer (Writer)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
-import LambdaCube.Compiler as LambdaCube
 import LambdaCube.GL as LambdaCubeGL
 
 import Game.GoreAndAsh

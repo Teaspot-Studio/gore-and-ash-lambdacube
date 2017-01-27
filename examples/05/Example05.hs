@@ -32,7 +32,7 @@ mainPipeline = PipelineId "mainPipeline"
 -- | Load and compile LambdaCube pipeline
 initPipe :: forall t m . (MonadLambdaCube t m) => m ()
 initPipe = do
-  lambdacubeAddPipeline [".", "../shared"] "example04.lc" mainPipeline $ do
+  lambdacubeAddPipeline [".", "../shared"] "example05.lc" mainPipeline $ do
     defObjectArray "objects" Triangles $ do
       "position"  @: Attribute_V3F
       "normal"    @: Attribute_V3F
@@ -72,7 +72,7 @@ app = do
   renderer <- lambdacubeGetRenderer
   rec
     win <- createMainWindow tickE (drawFrame sizeUpdater renderer) $ defaultWindowCfg
-        & windowCfgTitle .~ pure "Gore&Ash LambdaCube example 04"
+        & windowCfgTitle .~ pure "Gore&Ash LambdaCube example 05"
         & windowCfgConfig .~ defaultWindow {
             windowOpenGL = Just defaultOpenGL {
                 glProfile = Core Normal 3 3
@@ -151,7 +151,7 @@ simulateWall tD storage gpuMesh = do
 
   -- load image and upload texture
   textureData <- liftIO $ do
-    Right img <- Juicy.readImage "../shared/brick.jpg"
+    Right img <- Juicy.readImage "../shared/dirt.png"
     LC.uploadTexture2DToGPU img
 
   performEvent_ $ ffor (updated tD) $ const $ liftIO $ do
@@ -214,10 +214,9 @@ cubeMesh = Mesh
   n5 = LC.V3   0  (-1)   0
 
   u0 = LC.V2 0 0
-  u1 = LC.V2 1 0
-  u2 = LC.V2 1 1
-  u3 = LC.V2 0 1
-
+  u1 = LC.V2 6 0
+  u2 = LC.V2 6 6
+  u3 = LC.V2 0 6
 
 -- Boilerplate below
 
