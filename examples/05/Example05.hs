@@ -8,7 +8,6 @@ import Data.Int
 import Data.Proxy
 import Matrix
 
-import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 
 import LambdaCube.GL as LC
@@ -46,6 +45,7 @@ initPipe = do
       "lightDir"       @: V3F
       "windowWidth"    @: Int
       "windowHeight"   @: Int
+      "time"           @: Float
 
 
 -- | Draw single frame with LambdaCube on SDL context
@@ -88,7 +88,7 @@ app = do
 initStorage :: forall t m . (MonadLambdaCube t m) => m (GLStorage, GPUMesh)
 initStorage = do
   (sid, storage) <- lambdacubeCreateStorage mainPipeline
-  gpuMesh <- liftIO $ LC.uploadMeshToGPU cubeMesh
+  gpuMesh <- liftIO $ LC.uploadMeshToGPU $ plainMesh 500 200 40
   lambdacubeRenderStorageFirst sid
   return (storage, gpuMesh)
 
@@ -114,30 +114,31 @@ simulateStorage win storage gpuMesh = do
       "lightDir" @= return lightDirection
       "windowWidth" @= return (fromIntegral w :: Int32)
       "windowHeight" @= return (fromIntegral h :: Int32)
-  simulateCube tD storage gpuMesh
+      "time" @= return t
+  --simulateCube tD storage gpuMesh
   simulateWall tD storage gpuMesh
   return tickedE
 
--- | Render cube object
-simulateCube :: forall t m . (MonadLambdaCube t m)
-  => Dynamic t Float -> GLStorage -> GPUMesh -> m ()
-simulateCube tD storage gpuMesh = do
-  -- upload geometry to GPU and add to pipeline input
-  obj <- liftIO $ LC.addMeshToObjectArray storage "objects" [
-      "modelMat"
-    , "diffuseTexture"
-    , "depthMVP"] gpuMesh
+-- -- | Render cube object
+-- simulateCube :: forall t m . (MonadLambdaCube t m)
+--   => Dynamic t Float -> GLStorage -> GPUMesh -> m ()
+-- simulateCube tD storage gpuMesh = do
+--   -- upload geometry to GPU and add to pipeline input
+--   obj <- liftIO $ LC.addMeshToObjectArray storage "objects" [
+--       "modelMat"
+--     , "diffuseTexture"
+--     , "depthMVP"] gpuMesh
 
-  -- load image and upload texture
-  textureData <- liftIO $ do
-    Right img <- Juicy.readImage "../shared/logo.png"
-    LC.uploadTexture2DToGPU img
+--   -- load image and upload texture
+--   textureData <- liftIO $ do
+--     Right img <- Juicy.readImage "../shared/logo.png"
+--     LC.uploadTexture2DToGPU img
 
-  performEvent_ $ ffor (updated tD) $ \t -> liftIO $ do
-    let setter = LC.objectUniformSetter obj
-    uniformM44F "modelMat" setter $ modelMatrixCube t
-    uniformM44F "depthMVP" setter $ depthMVPCube t
-    uniformFTexture2D "diffuseTexture" setter textureData
+--   performEvent_ $ ffor (updated tD) $ \t -> liftIO $ do
+--     let setter = LC.objectUniformSetter obj
+--     uniformM44F "modelMat" setter $ modelMatrixCube t
+--     uniformM44F "depthMVP" setter $ depthMVPCube t
+--     uniformFTexture2D "diffuseTexture" setter textureData
 
 -- | Render wall object
 simulateWall :: forall t m . (MonadLambdaCube t m)
@@ -151,7 +152,7 @@ simulateWall tD storage gpuMesh = do
 
   -- load image and upload texture
   textureData <- liftIO $ do
-    Right img <- Juicy.readImage "../shared/dirt.png"
+    Right img <- Juicy.readImage "../shared/dirt_tiled.jpg"
     LC.uploadTexture2DToGPU img
 
   performEvent_ $ ffor (updated tD) $ const $ liftIO $ do
@@ -168,55 +169,36 @@ opts = LambdaCubeOptions {
     lambdaOptsNext = ()
   }
 
--- geometry data: triangles
-cubeMesh :: LC.Mesh
-cubeMesh = Mesh
-  { mAttributes   = M.fromList
-      [ ("position",  A_V3F $ V.fromList vertecies)
-      , ("normal",    A_V3F $ V.fromList normals)
-      , ("uv",        A_V2F $ V.fromList uvs)
+-- | Generate plain mesh with normals in +Y direction
+plainMesh :: Int -> Float -> Float -> LC.Mesh
+plainMesh n size uvscale = Mesh {
+    mAttributes = [
+        ("position", A_V3F positions)
+      , ("normal",   A_V3F normals)
+      , ("uv",       A_V2F uvs)
       ]
-  , mPrimitive    = P_Triangles
+  , mPrimitive = P_TrianglesI indicies
   }
   where
-  vertecies = [
-      v3, v2, v1, v3, v1, v0
-    , v4, v7, v6, v4, v6, v5
-    , v0, v1, v7, v0, v7, v4
-    , v5, v6, v2, v5, v2, v3
-    , v2, v6, v7, v2, v7, v1
-    , v5, v3, v0, v5, v0, v4
-    ]
-  normals = concat [
-      replicate 6 n0
-    , replicate 6 n1
-    , replicate 6 n2
-    , replicate 6 n3
-    , replicate 6 n4
-    , replicate 6 n5
-    ]
-  uvs = concat $ replicate 6 [u1, u2, u3, u1, u3, u0]
+    s = size / fromIntegral n
 
-  v0 = LC.V3 (-1) (-1) (-1)
-  v1 = LC.V3 (-1)   1  (-1)
-  v2 = LC.V3   1    1  (-1)
-  v3 = LC.V3   1  (-1) (-1)
-  v4 = LC.V3 (-1) (-1)   1
-  v5 = LC.V3   1  (-1)   1
-  v6 = LC.V3   1    1    1
-  v7 = LC.V3 (-1)   1    1
+    positions = V.generate (n * n) $ \i -> let
+      xi = i `mod` n
+      yi = i `div` n
+      in LC.V3 ((fromIntegral xi - 0.5 * fromIntegral n) * s) 0 ((fromIntegral yi - 0.5 * fromIntegral n) * s)
 
-  n0 = LC.V3   0    0  (-1)
-  n1 = LC.V3   0    0    1
-  n2 = LC.V3 (-1)   0    0
-  n3 = LC.V3   1    0    0
-  n4 = LC.V3   0    1    0
-  n5 = LC.V3   0  (-1)   0
+    normals = V.replicate (n * n) $ LC.V3 0 1 0
+    uvs = V.generate (n * n) $ \i -> let
+      xi = i `mod` n
+      yi = i `div` n
+      in LC.V2 (fromIntegral xi / uvscale) (fromIntegral yi / uvscale)
 
-  u0 = LC.V2 0 0
-  u1 = LC.V2 6 0
-  u2 = LC.V2 6 6
-  u3 = LC.V2 0 6
+    indicies = V.concat . V.toList $ V.generate ((n-1)*(n-1)) $ \i -> let
+      xi = i `mod` (n-1)
+      yi = i `div` (n-1)
+      uni x y = fromIntegral $ x + n * y
+      in [ uni (xi+1) (yi+1), uni xi (yi+1), uni xi yi
+         , uni (xi+1) yi, uni (xi+1) (yi+1), uni xi yi]
 
 -- Boilerplate below
 

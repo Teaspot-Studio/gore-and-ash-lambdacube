@@ -294,6 +294,7 @@ executable gore-and-ash-lambdacube-example05
     FunctionalDependencies
     GeneralizedNewtypeDeriving
     MultiParamTypeClasses
+    OverloadedLists
     OverloadedStrings
     RecordWildCards
     RecursiveDo

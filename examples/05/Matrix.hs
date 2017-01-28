@@ -34,16 +34,16 @@ modelMatrixWall :: LC.M44F
 modelMatrixWall = convLC modelMatrixWall'
 
 modelMatrixWall' :: M44 Float
-modelMatrixWall' = scale (V3 1 7 7) !*! translate (V3 (-3) 0 0)
+modelMatrixWall' = scale (V3 1 1 1) !*! translate (V3 0 0 0)
 
 -- | Camera matrix, maps from world coords to camera coords
 cameraMatrix :: Float -> LC.M44F
 cameraMatrix t = convLC $ lookAt eye (V3 0 0 0) (V3 0 1 0)
-  where eye = rotate (axisAngle (V3 0 1 0) t) (V3 15 2 15)
+  where eye = rotate (axisAngle (V3 0 1 0) (t / 10)) (V3 35 25 35)
 
 -- | Projection matrix, maps from camera coords to device normalized coords
 projMatrix :: Float -> LC.M44F
-projMatrix !aspect = convLC $ perspective (pi/3) aspect 0.1 100
+projMatrix !aspect = convLC $ perspective (pi/3) aspect 0.1 1000
 
 -- | Direction of light
 lightDirection :: LC.V3F
@@ -51,7 +51,7 @@ lightDirection = convLCV lightDir
 
 -- | Direction of light in Linear vector
 lightDir :: V3 Float
-lightDir = normalize $ V3 (-3) 0.5 0
+lightDir = normalize $ V3 3 (-1) 0
 
 -- | Matrix to view from directed light source
 depthMVPCube :: Float -> LC.M44F
@@ -62,10 +62,11 @@ depthMVPWall :: LC.M44F
 depthMVPWall = depthMVP modelMatrixWall'
 
 depthMVP :: M44 Float -> LC.M44F
-depthMVP modelMtx = convLC . transpose $ proj !*! view !*! modelMtx
+depthMVP modelMtx = convLC $ transpose (proj !*! view !*! modelMtx)
   where
     view = lookAt (negate lightDir) (V3 0 0 0) (V3 0 1 0)
-    proj = ortho (-10) 10 (-10) 10 (-10) (10)
+    proj = ortho (-dist) dist (-dist) dist (-dist) dist
+    dist = 200
 
 -- | Transform quaternion to rotation matrix
 quatMatrix :: Quaternion Float -> M44 Float
