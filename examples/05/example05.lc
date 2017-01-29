@@ -121,7 +121,7 @@ makeFrame (modelMat :: Mat 4 4 Float)
         r = reflect (l *! (-1)) n
         cosAlpha = max 0 (min 1 $ e `dot` r)
         specular = if lambertian <= 0 then 0 else pow cosAlpha shininess
-        visibility = if inshade then 0.5 else 1.0
+        visibility = if inshade then 0.7 else 1.0
         colorLinear = ambientColor + diffuseColor%xyz *! (power * lambertian * visibility) + specColor *! (specular * visibility)
 
 main :: Output
