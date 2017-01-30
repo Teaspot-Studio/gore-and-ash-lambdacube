@@ -83,7 +83,7 @@ executable gore-and-ash-lambdacube-example01
     , JuicyPixels           >= 3.2      && < 3.3
     , lambdacube-compiler   >= 0.6      && < 0.7
     , lambdacube-gl         >= 0.5      && < 0.6
-    , lens                  >= 4.14     && < 4.15
+    , lens                  >= 4.14     && < 4.16
     , mtl                   >= 2.2      && < 2.3
     , sdl2                  >= 2.1      && < 2.2
     , text                  >= 1.2.1    && < 1.3
@@ -131,7 +131,7 @@ executable gore-and-ash-lambdacube-example02
     , lambdacube-compiler   >= 0.6      && < 0.7
     , lambdacube-gl         >= 0.5      && < 0.6
     , lambdacube-ir         >= 0.3      && < 0.4
-    , lens                  >= 4.14     && < 4.15
+    , lens                  >= 4.14     && < 4.16
     , linear                >= 1.20     && < 1.21
     , mtl                   >= 2.2      && < 2.3
     , sdl2                  >= 2.1      && < 2.2
@@ -180,7 +180,7 @@ executable gore-and-ash-lambdacube-example03
     , lambdacube-compiler   >= 0.6      && < 0.7
     , lambdacube-gl         >= 0.5      && < 0.6
     , lambdacube-ir         >= 0.3      && < 0.4
-    , lens                  >= 4.14     && < 4.15
+    , lens                  >= 4.14     && < 4.16
     , linear                >= 1.20     && < 1.21
     , mtl                   >= 2.2      && < 2.3
     , sdl2                  >= 2.1      && < 2.2
@@ -229,7 +229,7 @@ executable gore-and-ash-lambdacube-example04
     , lambdacube-compiler   >= 0.6      && < 0.7
     , lambdacube-gl         >= 0.5      && < 0.6
     , lambdacube-ir         >= 0.3      && < 0.4
-    , lens                  >= 4.14     && < 4.15
+    , lens                  >= 4.14     && < 4.16
     , linear                >= 1.20     && < 1.21
     , mtl                   >= 2.2      && < 2.3
     , sdl2                  >= 2.1      && < 2.2
@@ -278,7 +278,7 @@ executable gore-and-ash-lambdacube-example05
     , lambdacube-compiler   >= 0.6      && < 0.7
     , lambdacube-gl         >= 0.5      && < 0.6
     , lambdacube-ir         >= 0.3      && < 0.4
-    , lens                  >= 4.14     && < 4.15
+    , lens                  >= 4.14     && < 4.16
     , linear                >= 1.20     && < 1.21
     , mtl                   >= 2.2      && < 2.3
     , sdl2                  >= 2.1      && < 2.2
